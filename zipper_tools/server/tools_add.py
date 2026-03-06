@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-central_tools - add tool CLI
+zipper_tools - add tool CLI
 """
 
 import os
@@ -35,7 +35,7 @@ def run(cmd, cwd=None):
 # Wizard interactivo
 # =================================================
 def interactive_manifest(repo_path: str) -> dict:
-    print("\n[!] No se encontró central_tools.yaml")
+    print("\n[!] No se encontró zipper_tools.yaml")
     print("[*] Creando manifiesto interactivo...\n")
 
     # ---------- tipo de entrada ----------
@@ -87,11 +87,11 @@ def interactive_manifest(repo_path: str) -> dict:
     if file_types:
         manifest["accepts"]["file_types"] = file_types
 
-    path = os.path.join(repo_path, "central_tools.yaml")
+    path = os.path.join(repo_path, "zipper_tools.yaml")
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(manifest, f, sort_keys=False)
 
-    print(f"\n[✓] central_tools.yaml creado en {path}\n")
+    print(f"\n[✓] zipper_tools.yaml creado en {path}\n")
     return manifest
 
 
@@ -117,7 +117,7 @@ def add_tool(repo_url: str) -> dict:
         raise RuntimeError(f"Error clonando repo: {err}")
 
     # 3) leer o crear manifiesto
-    manifest_path = os.path.join(repo_path, "central_tools.yaml")
+    manifest_path = os.path.join(repo_path, "zipper_tools.yaml")
     if not os.path.exists(manifest_path):
         manifest = interactive_manifest(repo_path)
     else:
@@ -143,7 +143,7 @@ def add_tool(repo_url: str) -> dict:
 # CLI
 # =================================================
 def main():
-    parser = argparse.ArgumentParser(description="Agregar herramienta a central_tools")
+    parser = argparse.ArgumentParser(description="Agregar herramienta a zipper_tools")
     parser.add_argument("repo_url", nargs="?", help="URL del repositorio GitHub")
     args = parser.parse_args()
 

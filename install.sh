@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== central_tools Installer ==="
+echo "=== zipper_tools Installer ==="
 
 # -------------------------
 # Ask port
 # -------------------------
 DEFAULT_PORT=8080
-read -rp "Puerto para central_tools [${DEFAULT_PORT}]: " CT_PORT
+read -rp "Puerto para zipper_tools [${DEFAULT_PORT}]: " CT_PORT
 CT_PORT="${CT_PORT:-$DEFAULT_PORT}"
 
 if ! [[ "$CT_PORT" =~ ^[0-9]+$ ]]; then
@@ -15,7 +15,7 @@ if ! [[ "$CT_PORT" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-CT_DIR="$PWD/central_tools"
+CT_DIR="$PWD/zipper_tools"
 CT_HOST="0.0.0.0"
 
 echo "[*] Instalando en ${CT_DIR}"
@@ -46,7 +46,7 @@ pip install fastapi uvicorn pydantic PyYAML >/dev/null
 # server/__init__.py
 # -------------------------
 cat > "${CT_DIR}/server/__init__.py" <<'PY'
-# central_tools server
+# zipper_tools server
 PY
 
 # -------------------------
@@ -62,7 +62,8 @@ JSON
 cat > "${CT_DIR}/server/registry.py" <<'PY'
 import json, os
 
-DB_PATH = "server/tools_db.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_HERE, "tools_db.json")
 
 def load_tools():
     if not os.path.exists(DB_PATH):
@@ -82,7 +83,8 @@ cat > "${CT_DIR}/server/tools_add.py" <<'PY'
 import os, subprocess, uuid, yaml, shutil
 from server.registry import load_tools, save_tools
 
-TOOLS_DIR = "tools_storage"
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOOLS_DIR = os.path.join(_BASE, "tools_storage")
 
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -100,10 +102,10 @@ def add_tool(repo_url: str):
 
     _run(["git", "clone", "--depth", "1", repo_url, repo])
 
-    manifest = os.path.join(repo, "central_tools.yaml")
+    manifest = os.path.join(repo, "zipper_tools.yaml")
     if not os.path.exists(manifest):
         shutil.rmtree(base)
-        raise RuntimeError("Falta central_tools.yaml")
+        raise RuntimeError("Falta zipper_tools.yaml")
 
     data = yaml.safe_load(open(manifest))
 
@@ -225,13 +227,15 @@ cat > "${CT_DIR}/server/app.py" <<'PY'
 from fastapi import FastAPI, UploadFile, File, Body, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import uuid
+import os, uuid
 from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
 
-app = FastAPI(title="central_tools")
-store = JobStore("tools_runtime/work")
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+app = FastAPI(title="zipper_tools")
+store = JobStore(os.path.join(_BASE, "tools_runtime", "work"))
 
 class UrlIn(BaseModel):
     type: str = "url"
@@ -279,5 +283,5 @@ EOF
 chmod +x "${CT_DIR}/run_server.sh"
 
 echo
-echo "[✓] central_tools instalado correctamente"
-echo "    cd central_tools && ./run_server.sh"
+echo "[✓] zipper_tools instalado correctamente"
+echo "    cd zipper_tools && ./run_server.sh"
