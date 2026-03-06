@@ -1,0 +1,6 @@
+.venv/
+zipper_tools/tools_storage/
+zipper_tools/tools_runtime/
+zipper_tools/logs/
+__pycache__/
+*.pyc
