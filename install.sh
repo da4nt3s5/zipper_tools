@@ -40,7 +40,18 @@ mkdir -p "${CT_DIR}"/{server,tools_storage,tools_runtime/work,logs}
 python3 -m venv "${CT_DIR}/.venv"
 source "${CT_DIR}/.venv/bin/activate"
 pip install --upgrade pip >/dev/null
-pip install fastapi uvicorn pydantic PyYAML >/dev/null
+pip install -r "${CT_DIR}/requirements.txt" >/dev/null
+
+# -------------------------
+# requirements.txt
+# -------------------------
+cat > "${CT_DIR}/requirements.txt" <<'TXT'
+fastapi
+uvicorn[standard]
+pydantic
+PyYAML
+python-multipart
+TXT
 
 # -------------------------
 # server/__init__.py
@@ -277,8 +288,9 @@ PY
 # -------------------------
 cat > "${CT_DIR}/run_server.sh" <<EOF
 #!/usr/bin/env bash
-source "\$(dirname "\$0")/.venv/bin/activate"
-uvicorn server.app:app --host ${CT_HOST} --port ${CT_PORT}
+SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
+cd "\$SCRIPT_DIR"
+"\$SCRIPT_DIR/.venv/bin/uvicorn" server.app:app --host ${CT_HOST} --port ${CT_PORT}
 EOF
 chmod +x "${CT_DIR}/run_server.sh"
 

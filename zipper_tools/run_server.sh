@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-source "$(dirname "$0")/.venv/bin/activate"
-uvicorn server.app:app --host 0.0.0.0 --port 3030
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+"$SCRIPT_DIR/.venv/bin/uvicorn" server.app:app --host 0.0.0.0 --port 3030
