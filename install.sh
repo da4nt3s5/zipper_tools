@@ -35,14 +35,6 @@ need git
 mkdir -p "${CT_DIR}"/{server,tools_storage,tools_runtime/work,logs}
 
 # -------------------------
-# Python venv
-# -------------------------
-python3 -m venv "${CT_DIR}/.venv"
-source "${CT_DIR}/.venv/bin/activate"
-pip install --upgrade pip >/dev/null
-pip install -r "${CT_DIR}/requirements.txt" >/dev/null
-
-# -------------------------
 # requirements.txt
 # -------------------------
 cat > "${CT_DIR}/requirements.txt" <<'TXT'
@@ -52,6 +44,13 @@ pydantic
 PyYAML
 python-multipart
 TXT
+
+# -------------------------
+# Python venv
+# -------------------------
+python3 -m venv "${CT_DIR}/.venv"
+"${CT_DIR}/.venv/bin/pip" install --upgrade pip >/dev/null
+"${CT_DIR}/.venv/bin/pip" install -r "${CT_DIR}/requirements.txt" >/dev/null
 
 # -------------------------
 # server/__init__.py
