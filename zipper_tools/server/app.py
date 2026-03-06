@@ -6,7 +6,7 @@ from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
 
-app = FastAPI(title="central_tools")
+app = FastAPI(title="zipper_tools")
 store = JobStore("tools_runtime/work")
 
 class UrlIn(BaseModel):

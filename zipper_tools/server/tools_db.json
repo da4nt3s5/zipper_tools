@@ -11,7 +11,7 @@
     "runtime": {
       "type": "binary"
     },
-    "path": "/home/d4nt3s/herramientas_y_otros/central_tools/central_tools/tools_storage/2cef2cff"
+    "path": "/home/d4nt3s/herramientas_y_otros/zipper_tools/zipper_tools/tools_storage/2cef2cff"
   },
   "64e22720": {
     "id": "64e22720",
@@ -25,7 +25,7 @@
     "runtime": {
       "type": "go"
     },
-    "path": "/home/d4nt3s/herramientas_y_otros/central_tools/central_tools/tools_storage/64e22720"
+    "path": "/home/d4nt3s/herramientas_y_otros/zipper_tools/zipper_tools/tools_storage/64e22720"
   },
   "779f883b": {
     "id": "779f883b",
@@ -39,6 +39,6 @@
     "runtime": {
       "type": "python"
     },
-    "path": "/home/d4nt3s/herramientas_y_otros/central_tools/central_tools/tools_storage/779f883b"
+    "path": "/home/d4nt3s/herramientas_y_otros/zipper_tools/zipper_tools/tools_storage/779f883b"
   }
 }

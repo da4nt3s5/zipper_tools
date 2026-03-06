@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== central_tools Installer ==="
+echo "=== zipper_tools Installer ==="
 
 # -------------------------
 # Ask port
 # -------------------------
 DEFAULT_PORT=8080
-read -rp "Puerto para central_tools [${DEFAULT_PORT}]: " CT_PORT
+read -rp "Puerto para zipper_tools [${DEFAULT_PORT}]: " CT_PORT
 CT_PORT="${CT_PORT:-$DEFAULT_PORT}"
 
 if ! [[ "$CT_PORT" =~ ^[0-9]+$ ]]; then
@@ -15,7 +15,7 @@ if ! [[ "$CT_PORT" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-CT_DIR="$PWD/central_tools"
+CT_DIR="$PWD/zipper_tools"
 CT_HOST="0.0.0.0"
 
 echo "[*] Instalando en ${CT_DIR}"
@@ -46,7 +46,7 @@ pip install fastapi uvicorn pydantic PyYAML >/dev/null
 # server/__init__.py
 # -------------------------
 cat > "${CT_DIR}/server/__init__.py" <<'PY'
-# central_tools server
+# zipper_tools server
 PY
 
 # -------------------------
@@ -100,10 +100,10 @@ def add_tool(repo_url: str):
 
     _run(["git", "clone", "--depth", "1", repo_url, repo])
 
-    manifest = os.path.join(repo, "central_tools.yaml")
+    manifest = os.path.join(repo, "zipper_tools.yaml")
     if not os.path.exists(manifest):
         shutil.rmtree(base)
-        raise RuntimeError("Falta central_tools.yaml")
+        raise RuntimeError("Falta zipper_tools.yaml")
 
     data = yaml.safe_load(open(manifest))
 
@@ -230,7 +230,7 @@ from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
 
-app = FastAPI(title="central_tools")
+app = FastAPI(title="zipper_tools")
 store = JobStore("tools_runtime/work")
 
 class UrlIn(BaseModel):
@@ -279,5 +279,5 @@ EOF
 chmod +x "${CT_DIR}/run_server.sh"
 
 echo
-echo "[✓] central_tools instalado correctamente"
-echo "    cd central_tools && ./run_server.sh"
+echo "[✓] zipper_tools instalado correctamente"
+echo "    cd zipper_tools && ./run_server.sh"

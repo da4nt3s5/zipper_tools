@@ -1,8 +1,8 @@
-# CLAUDE.md — zipper_tools / central_tools
+# CLAUDE.md — zipper_tools / zipper_tools
 
 ## Project Overview
 
-`zipper_tools` is a tool-orchestration server called **central_tools**. It is a FastAPI-based REST API that:
+`zipper_tools` is a tool-orchestration server called **zipper_tools**. It is a FastAPI-based REST API that:
 1. Maintains a registry of external analysis tools sourced from GitHub repositories.
 2. Accepts analysis jobs (a file upload or a URL) via its API.
 3. Dispatches each job to all registered tools that support its input type.
@@ -39,7 +39,7 @@ zipper_tools/               ← git root
 ## Key Modules
 
 ### `server/app.py`
-FastAPI app (`central_tools`). Three endpoints:
+FastAPI app (`zipper_tools`). Three endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -81,14 +81,14 @@ Handles tool registration, both programmatically (called by `app.py`) and as a s
 Steps:
 1. Verify the repo is accessible (`git ls-remote`).
 2. Clone the repo with `--depth 1` into `tools_storage/{tool_id}/repo/`.
-3. Read `central_tools.yaml` from the cloned repo (or run an interactive wizard to create one).
+3. Read `zipper_tools.yaml` from the cloned repo (or run an interactive wizard to create one).
 4. Write the tool record into `tools_db.json`.
 
 ---
 
-## Tool Manifest (`central_tools.yaml`)
+## Tool Manifest (`zipper_tools.yaml`)
 
-Every tool repo must contain a `central_tools.yaml` at its root:
+Every tool repo must contain a `zipper_tools.yaml` at its root:
 
 ```yaml
 accepts:
@@ -169,7 +169,7 @@ curl http://localhost:3030/jobs/<job_id>
 | `fastapi` | Web framework |
 | `uvicorn` | ASGI server |
 | `pydantic` | Request/response validation |
-| `PyYAML` | Parsing `central_tools.yaml` manifests |
+| `PyYAML` | Parsing `zipper_tools.yaml` manifests |
 
 All dependencies are installed into `.venv/` by the installer. There is no `requirements.txt` or `pyproject.toml`; the install.sh script handles `pip install` directly.
 
