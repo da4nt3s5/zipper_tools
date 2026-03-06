@@ -1,13 +1,15 @@
 from fastapi import FastAPI, UploadFile, File, Body, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import uuid
+import os, uuid
 from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
 
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 app = FastAPI(title="zipper_tools")
-store = JobStore("tools_runtime/work")
+store = JobStore(os.path.join(_BASE, "tools_runtime", "work"))
 
 class UrlIn(BaseModel):
     type: str = "url"

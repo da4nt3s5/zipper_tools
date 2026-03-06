@@ -64,7 +64,7 @@ tools_runtime/work/{job_id}/
 Job lifecycle states: `queued` → `running` → `finished` (or `error`).
 
 ### `server/registry.py`
-Thin wrapper around `tools_db.json`. The DB path is **relative** (`server/tools_db.json`), so the server **must be started from the `zipper_tools/` directory**.
+Thin wrapper around `tools_db.json`. The DB path is resolved relative to `__file__`, so the server can be started from any directory.
 
 ### `server/runner.py` — `run_job`
 Iterates over all registered tools, filters by `accepts.kind`, and runs each tool's command template via `subprocess.run(cmd, shell=True)`.
@@ -177,7 +177,7 @@ All dependencies are installed into `.venv/` by the installer. There is no `requ
 
 ## Important Conventions
 
-1. **Working directory**: The server and CLI tools assume the current directory is `zipper_tools/`. Registry paths and `JobStore` paths are all relative to this directory.
+1. **Working directory**: The server can be started from any directory. All paths (`tools_db.json`, `tools_runtime/work`, `tools_storage`) are resolved relative to the location of each module file using `__file__`.
 
 2. **Tool IDs**: 8-character hex prefix of a UUID4 (e.g., `2cef2cff`). Generated at registration time.
 

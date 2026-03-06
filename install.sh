@@ -62,7 +62,8 @@ JSON
 cat > "${CT_DIR}/server/registry.py" <<'PY'
 import json, os
 
-DB_PATH = "server/tools_db.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_HERE, "tools_db.json")
 
 def load_tools():
     if not os.path.exists(DB_PATH):
@@ -82,7 +83,8 @@ cat > "${CT_DIR}/server/tools_add.py" <<'PY'
 import os, subprocess, uuid, yaml, shutil
 from server.registry import load_tools, save_tools
 
-TOOLS_DIR = "tools_storage"
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOOLS_DIR = os.path.join(_BASE, "tools_storage")
 
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -225,13 +227,15 @@ cat > "${CT_DIR}/server/app.py" <<'PY'
 from fastapi import FastAPI, UploadFile, File, Body, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import uuid
+import os, uuid
 from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
 
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 app = FastAPI(title="zipper_tools")
-store = JobStore("tools_runtime/work")
+store = JobStore(os.path.join(_BASE, "tools_runtime", "work"))
 
 class UrlIn(BaseModel):
     type: str = "url"

@@ -1,6 +1,7 @@
 import json, os
 
-DB_PATH = "server/tools_db.json"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_HERE, "tools_db.json")
 
 def load_tools():
     if not os.path.exists(DB_PATH):
