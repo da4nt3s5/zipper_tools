@@ -290,7 +290,7 @@ cat > "${CT_DIR}/run_server.sh" <<EOF
 #!/usr/bin/env bash
 SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 cd "\$SCRIPT_DIR"
-"\$SCRIPT_DIR/.venv/bin/uvicorn" server.app:app --host ${CT_HOST} --port ${CT_PORT}
+"\$SCRIPT_DIR/.venv/bin/python3" -m uvicorn server.app:app --host ${CT_HOST} --port ${CT_PORT}
 EOF
 chmod +x "${CT_DIR}/run_server.sh"
 
