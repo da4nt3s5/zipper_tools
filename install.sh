@@ -15,15 +15,28 @@ need() { command -v "$1" >/dev/null || { echo "[!] Falta $1"; exit 1; }; }
 need git
 
 # -------------------------
-# Clonar repositorio
+# Obtener código fuente
 # -------------------------
-echo
-echo "[*] Clonando repositorio..."
-git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
-cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
-cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
-rm -rf "${SCRIPT_DIR}/_repo_tmp"
-echo "[✓] Repositorio clonado."
+if [ -d "${SCRIPT_DIR}/src" ]; then
+    echo "[✓] Directorio src/ encontrado, omitiendo clonación."
+else
+    echo
+    echo "[*] Clonando repositorio..."
+    git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
+    if [ -d "${SCRIPT_DIR}/_repo_tmp/src" ]; then
+        cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
+        cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
+    else
+        rm -rf "${SCRIPT_DIR}/_repo_tmp"
+        echo "[!] El repositorio clonado no contiene el directorio src/."
+        echo "    Clona el repositorio manualmente y ejecuta install.sh desde ahí:"
+        echo "      git clone ${REPO_URL}"
+        echo "      cd zipper_tools && ./install.sh"
+        exit 1
+    fi
+    rm -rf "${SCRIPT_DIR}/_repo_tmp"
+    echo "[✓] Repositorio clonado."
+fi
 
 # -------------------------
 # Python venv + dependencias
