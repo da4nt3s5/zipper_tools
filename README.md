@@ -1,1 +1,1 @@
-# zipper_tools
+CLAUDE.md
