@@ -2,7 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_URL="https://github.com/da4nt3s5/zipper_tools"
+#REPO_URL="https://github.com/da4nt3s5/zipper_tools"
+REPO_URL="git@github.com:da4nt3s5/zipper_tools.git"
+
 
 echo "=== zipper_tools Installer ==="
 
