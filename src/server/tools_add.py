@@ -1,4 +1,5 @@
-import os, subprocess, uuid, yaml, shutil
+import os, sys, subprocess, uuid, yaml, shutil
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from server.registry import load_tools, save_tools
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
