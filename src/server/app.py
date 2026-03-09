@@ -57,7 +57,7 @@ def _format_findings(findings: list) -> dict:
             m if len(m) <= _MAX_MATCH_LEN else m[:_MAX_MATCH_LEN] + "…"
             for m in clean
         ]
-        summary.append({"tipo": name, "matches": truncated})
+        summary.append({"tipo": name, "results": truncated})
     return {"hallazgos": summary, "total_tipos": len(summary)}
 
 
