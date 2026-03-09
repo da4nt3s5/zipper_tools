@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_URL="https://github.com/da4nt3s5/zipper_tools"
 
 echo "=== zipper_tools Installer ==="
 
@@ -9,36 +10,39 @@ echo "=== zipper_tools Installer ==="
 # Prereqs
 # -------------------------
 need() { command -v "$1" >/dev/null || { echo "[!] Falta $1"; exit 1; }; }
-need python3
-need pip3
 need git
 
 # -------------------------
-# Runtime directories
+# Clonar repositorio
 # -------------------------
-mkdir -p "${SCRIPT_DIR}/src/tools_storage"
-mkdir -p "${SCRIPT_DIR}/src/tools_runtime/work"
-mkdir -p "${SCRIPT_DIR}/src/logs"
+if [ ! -d "${SCRIPT_DIR}/src" ]; then
+    echo
+    echo "[*] Clonando repositorio..."
+    git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
+    cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
+    cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
+    rm -rf "${SCRIPT_DIR}/_repo_tmp"
+    echo "[✓] Repositorio clonado."
+else
+    echo "[✓] Carpeta src/ ya existe, omitiendo clone."
+fi
 
 # -------------------------
 # Python venv + dependencias
 # -------------------------
-VENV_DIR="${SCRIPT_DIR}/src/.venv"
+VENV_DIR="${SCRIPT_DIR}/.venv"
 
 if [ -d "$VENV_DIR" ]; then
     echo "[✓] Virtualenv ya existe en $VENV_DIR, omitiendo creación."
-    PYTHON_BIN="$VENV_DIR/bin/python"
 else
     echo
     echo "[*] Detectando versiones de Python instaladas..."
 
-    # Recolectar candidatos python3.x disponibles
     PYTHON_CANDIDATES=()
     for cmd in python3 python3.10 python3.11 python3.12 python3.13; do
         if command -v "$cmd" >/dev/null 2>&1; then
             full_path="$(command -v "$cmd")"
-            version="$("$full_path" -c 'import sys; print("{}.{}.{}".format(*sys.version_info[:3]))'  2>/dev/null)"
-            # Evitar duplicados por path real
+            version="$("$full_path" -c 'import sys; print("{}.{}.{}".format(*sys.version_info[:3]))' 2>/dev/null)"
             real_path="$(realpath "$full_path" 2>/dev/null || echo "$full_path")"
             already=0
             for seen in "${PYTHON_CANDIDATES[@]+"${PYTHON_CANDIDATES[@]}"}"; do
@@ -67,7 +71,7 @@ else
     fi
 
     SELECTED="${PYTHON_CANDIDATES[$((sel-1))]}"
-    PYTHON_BIN="${SELECTED%% *}"   # tomar solo el path (antes del primer espacio)
+    PYTHON_BIN="${SELECTED%% *}"
     PY_VERSION="$("$PYTHON_BIN" -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))')"
     PY_MAJOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[0])')"
     PY_MINOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[1])')"
@@ -90,4 +94,5 @@ fi
 
 echo
 echo "[✓] zipper_tools instalado correctamente"
-echo "    ./src/run_server.sh"
+echo "    Activa el entorno: source .venv/bin/activate"
+echo "    Inicia el servidor: ./src/run_server.sh"
