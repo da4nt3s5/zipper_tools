@@ -46,4 +46,27 @@ def job(job_id: str):
     j = store.read_job(job_id)
     if not j:
         raise HTTPException(404)
+
+    # Adjuntar contenido de archivos de resultados por herramienta
+    tools_dir = os.path.join(store.job_dir(job_id), "tools")
+    if j.get("results") and os.path.isdir(tools_dir):
+        for tool_result in j["results"].get("tools", []):
+            tool_id = tool_result["tool"]
+            tool_outdir = os.path.join(tools_dir, tool_id)
+            output = {}
+            if os.path.isdir(tool_outdir):
+                for fname in os.listdir(tool_outdir):
+                    fpath = os.path.join(tool_outdir, fname)
+                    try:
+                        with open(fpath) as f:
+                            content = f.read()
+                        try:
+                            import json as _json
+                            output[fname] = _json.loads(content)
+                        except Exception:
+                            output[fname] = content
+                    except Exception:
+                        output[fname] = None
+            tool_result["output"] = output
+
     return j
