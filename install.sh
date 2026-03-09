@@ -15,17 +15,13 @@ need git
 # -------------------------
 # Clonar repositorio
 # -------------------------
-if [ ! -d "${SCRIPT_DIR}/src" ]; then
-    echo
-    echo "[*] Clonando repositorio..."
-    git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
-    cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
-    cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
-    rm -rf "${SCRIPT_DIR}/_repo_tmp"
-    echo "[✓] Repositorio clonado."
-else
-    echo "[✓] Carpeta src/ ya existe, omitiendo clone."
-fi
+echo
+echo "[*] Clonando repositorio..."
+git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
+cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
+cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
+rm -rf "${SCRIPT_DIR}/_repo_tmp"
+echo "[✓] Repositorio clonado."
 
 # -------------------------
 # Python venv + dependencias
