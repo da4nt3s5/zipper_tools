@@ -1,4 +1,4 @@
-# CLAUDE.md — zipper_tools / zipper_tools
+# Zipper_tools
 
 ## Project Overview
 
