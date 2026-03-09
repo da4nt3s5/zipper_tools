@@ -42,7 +42,6 @@ def tools_add(data: RepoIn):
         raise HTTPException(400, str(e))
 
 _MAX_MATCH_LEN = 120
-_MAX_MATCHES_SHOWN = 5
 
 def _format_findings(findings: list) -> dict:
     """Convierte lista de hallazgos en resumen legible."""
@@ -56,12 +55,9 @@ def _format_findings(findings: list) -> dict:
             continue
         truncated = [
             m if len(m) <= _MAX_MATCH_LEN else m[:_MAX_MATCH_LEN] + "…"
-            for m in clean[:_MAX_MATCHES_SHOWN]
+            for m in clean
         ]
-        entry = {"tipo": name, "total_matches": len(clean), "ejemplos": truncated}
-        if len(clean) > _MAX_MATCHES_SHOWN:
-            entry["mas"] = f"... {len(clean) - _MAX_MATCHES_SHOWN} más"
-        summary.append(entry)
+        summary.append({"tipo": name, "matches": truncated})
     return {"hallazgos": summary, "total_tipos": len(summary)}
 
 
