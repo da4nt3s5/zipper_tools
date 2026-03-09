@@ -41,13 +41,38 @@ def tools_add(data: RepoIn):
     except RuntimeError as e:
         raise HTTPException(400, str(e))
 
+_MAX_MATCH_LEN = 120
+_MAX_MATCHES_SHOWN = 5
+
+def _format_findings(findings: list) -> dict:
+    """Convierte lista de hallazgos en resumen legible."""
+    summary = []
+    for item in findings:
+        name = item.get("name", "?")
+        matches = item.get("matches", [])
+        # Filtrar matches que son solo CSS/HTML masivo (> 1000 chars)
+        clean = [m for m in matches if len(m) < 1000]
+        if not clean:
+            continue
+        truncated = [
+            m if len(m) <= _MAX_MATCH_LEN else m[:_MAX_MATCH_LEN] + "…"
+            for m in clean[:_MAX_MATCHES_SHOWN]
+        ]
+        entry = {"tipo": name, "total_matches": len(clean), "ejemplos": truncated}
+        if len(clean) > _MAX_MATCHES_SHOWN:
+            entry["mas"] = f"... {len(clean) - _MAX_MATCHES_SHOWN} más"
+        summary.append(entry)
+    return {"hallazgos": summary, "total_tipos": len(summary)}
+
+
 @app.get("/jobs/{job_id}")
 def job(job_id: str):
     j = store.read_job(job_id)
     if not j:
         raise HTTPException(404)
 
-    # Adjuntar contenido de archivos de resultados por herramienta
+    import json as _json
+
     tools_dir = os.path.join(store.job_dir(job_id), "tools")
     if j.get("results") and os.path.isdir(tools_dir):
         for tool_result in j["results"].get("tools", []):
@@ -61,10 +86,20 @@ def job(job_id: str):
                         with open(fpath) as f:
                             content = f.read()
                         try:
-                            import json as _json
-                            output[fname] = _json.loads(content)
+                            parsed = _json.loads(content)
+                            # Si es lista de hallazgos con campo "name"+"matches", formatear
+                            if isinstance(parsed, dict) and "results" in parsed and isinstance(parsed["results"], list):
+                                output[fname] = {
+                                    "paquete": parsed.get("package"),
+                                    **_format_findings(parsed["results"]),
+                                }
+                            elif isinstance(parsed, list) and parsed and "name" in parsed[0]:
+                                output[fname] = _format_findings(parsed)
+                            else:
+                                output[fname] = parsed
                         except Exception:
-                            output[fname] = content
+                            # Texto plano: truncar si es muy largo
+                            output[fname] = content[:2000] + ("…" if len(content) > 2000 else "")
                     except Exception:
                         output[fname] = None
             tool_result["output"] = output
