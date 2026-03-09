@@ -2,9 +2,9 @@ from fastapi import FastAPI, UploadFile, File, Body, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import os, uuid
-from src.server.storage import JobStore
-from src.server.runner import run_job
-from src.server.tools_add import add_tool
+from server.storage import JobStore
+from server.runner import run_job
+from server.tools_add import add_tool
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

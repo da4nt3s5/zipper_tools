@@ -1,5 +1,5 @@
 import os, subprocess, time
-from src.server.registry import load_tools
+from server.registry import load_tools
 
 def run_job(store, job_id):
     job = store.read_job(job_id)

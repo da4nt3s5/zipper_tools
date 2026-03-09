@@ -1,5 +1,5 @@
 import os, subprocess, uuid, yaml, shutil
-from src.server.registry import load_tools, save_tools
+from server.registry import load_tools, save_tools
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS_DIR = os.path.join(_BASE, "tools_storage")
