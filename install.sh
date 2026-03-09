@@ -2,9 +2,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-#REPO_URL="https://github.com/da4nt3s5/zipper_tools"
-REPO_URL="git@github.com:da4nt3s5/zipper_tools.git"
-
 
 echo "=== zipper_tools Installer ==="
 
@@ -15,27 +12,15 @@ need() { command -v "$1" >/dev/null || { echo "[!] Falta $1"; exit 1; }; }
 need git
 
 # -------------------------
-# Obtener código fuente
+# Verificar que src/ existe
 # -------------------------
-if [ -d "${SCRIPT_DIR}/src" ]; then
-    echo "[✓] Directorio src/ encontrado, omitiendo clonación."
-else
-    echo
-    echo "[*] Clonando repositorio..."
-    git clone --depth 1 "$REPO_URL" "${SCRIPT_DIR}/_repo_tmp"
-    if [ -d "${SCRIPT_DIR}/_repo_tmp/src" ]; then
-        cp -r "${SCRIPT_DIR}/_repo_tmp/src" "${SCRIPT_DIR}/src"
-        cp "${SCRIPT_DIR}/_repo_tmp/requirements.txt" "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || true
-    else
-        rm -rf "${SCRIPT_DIR}/_repo_tmp"
-        echo "[!] El repositorio clonado no contiene el directorio src/."
-        echo "    Clona el repositorio manualmente y ejecuta install.sh desde ahí:"
-        echo "      git clone ${REPO_URL}"
-        echo "      cd zipper_tools && ./install.sh"
-        exit 1
-    fi
-    rm -rf "${SCRIPT_DIR}/_repo_tmp"
-    echo "[✓] Repositorio clonado."
+if [ ! -d "${SCRIPT_DIR}/src" ]; then
+    echo "[!] No se encontró el directorio src/."
+    echo "    Ejecuta install.sh desde dentro del repositorio clonado:"
+    echo "      git clone git@github.com:da4nt3s5/zipper_tools.git"
+    echo "      cd zipper_tools"
+    echo "      ./install.sh"
+    exit 1
 fi
 
 # -------------------------
