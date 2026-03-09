@@ -36,7 +36,10 @@ async def submit(file: Optional[UploadFile] = File(None), body: Optional[UrlIn] 
 
 @app.post("/tools/add")
 def tools_add(data: RepoIn):
-    return add_tool(data.repo_url)
+    try:
+        return add_tool(data.repo_url)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
 
 @app.get("/jobs/{job_id}")
 def job(job_id: str):
