@@ -49,8 +49,8 @@ def _format_findings(findings: list) -> dict:
     for item in findings:
         name = item.get("name", "?")
         matches = item.get("matches", [])
-        # Filtrar matches que son solo CSS/HTML masivo (> 1000 chars)
-        clean = [m for m in matches if len(m) < 1000]
+        # Filtrar matches que son solo CSS/HTML masivo (> 1000 chars) o HackerOne_CTF_Flag
+        clean = [m for m in matches if len(m) < 1000 and "HackerOne_CTF_Flag" not in m]
         if not clean:
             continue
         truncated = [
