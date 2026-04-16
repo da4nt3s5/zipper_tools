@@ -1,4 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, Body, HTTPException
+from fastapi import FastAPI, UploadFile, File, Body, HTTPException, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 import os, uuid
@@ -7,9 +9,13 @@ from server.runner import run_job
 from server.tools_add import add_tool
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 app = FastAPI(title="zipper_tools")
 store = JobStore(os.path.join(_BASE, "tools_runtime", "work"))
+
+# Serve static files (CSS, JS, SVG) under /static
+app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 
 class UrlIn(BaseModel):
     type: str = "url"
@@ -17,6 +23,14 @@ class UrlIn(BaseModel):
 
 class RepoIn(BaseModel):
     repo_url: str
+
+@app.get("/")
+def index():
+    return FileResponse(os.path.join(_STATIC, "index.html"))
+
+@app.get("/jobs")
+def list_jobs(q: str = Query(default="")):
+    return {"jobs": store.list_jobs(q)}
 
 @app.post("/submit")
 async def submit(file: Optional[UploadFile] = File(None), body: Optional[UrlIn] = Body(None)):

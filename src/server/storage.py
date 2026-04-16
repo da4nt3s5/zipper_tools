@@ -37,6 +37,39 @@ class JobStore:
         p = f"{self.job_dir(job_id)}/job.json"
         return json.load(open(p)) if os.path.exists(p) else None
 
+    def list_jobs(self, q: str = ""):
+        """Return job summaries (no results) sorted newest-first.
+        If q is provided, filter by job_id prefix or URL/kind substring."""
+        entries = []
+        if not os.path.isdir(self.base_dir):
+            return entries
+        for jid in os.listdir(self.base_dir):
+            jpath = os.path.join(self.base_dir, jid, "job.json")
+            if not os.path.exists(jpath):
+                continue
+            mtime = os.path.getmtime(jpath)
+            entries.append((mtime, jid))
+        entries.sort(reverse=True)
+
+        jobs = []
+        for _, jid in entries:
+            j = self.read_job(jid)
+            if not j:
+                continue
+            summary = {k: v for k, v in j.items() if k != "results"}
+            if q:
+                needle = q.lower()
+                haystack = " ".join([
+                    jid,
+                    j.get("url") or "",
+                    j.get("kind") or "",
+                    j.get("status") or "",
+                ]).lower()
+                if needle not in haystack:
+                    continue
+            jobs.append(summary)
+        return jobs
+
     def _write(self, job_id, data):
         with open(f"{self.job_dir(job_id)}/job.json", "w") as f:
             json.dump(data, f, indent=2)

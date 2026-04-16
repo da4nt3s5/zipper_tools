@@ -1,0 +1,251 @@
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #070810;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+/* ── Background canvas ── */
+#zbg {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+
+/* ── Dark overlay ── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(5, 6, 12, 0.72);
+  z-index: 1;
+}
+
+/* ── Layers ── */
+.layer {
+  position: fixed; inset: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  display: flex;
+}
+
+.layer.on {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ══════════════════════════════════════
+   LAYER 1 — Modal
+══════════════════════════════════════ */
+#layerModal {
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Modal container ── */
+.modal {
+  width: 500px;
+  padding: 0 16px;
+}
+
+@media (max-width: 540px) {
+  .modal { width: 100%; padding: 0 20px; }
+}
+
+/* ── Tab row ── */
+.tab-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 9px;
+}
+
+.tp {
+  padding: 6px 14px;
+  font: 13px monospace;
+  letter-spacing: 0.6px;
+  border-radius: 20px;
+  cursor: pointer;
+  border: 0.5px solid transparent;
+  color: #252a42;
+  background: transparent;
+  user-select: none;
+  transition: color 0.12s;
+}
+.tp:hover { color: #3d5580; }
+.tp.active { background: #162040; color: #7aa2f7; border-color: #2a4270; }
+
+.tlogin { margin-left: auto; color: #4a3060; }
+.tlogin:hover { color: #6a4a90; }
+.tlogin.active { background: #1e0e30; color: #bb9af7; border-color: #5a3a8a; }
+
+/* ── Tab content ── */
+.tc { display: none; }
+.tc.active-tc { display: block; }
+
+/* ── Cards ── */
+.card {
+  background: #0e1120;
+  border-radius: 7px;
+  border: 0.5px solid rgba(255, 255, 255, 0.04);
+  padding: 30px 20px;
+  text-align: center;
+}
+.card-form   { padding: 20px; text-align: left; }
+.card-login  { background: #0c0814; border-color: #2a1a40; }
+
+/* ── Upload area ── */
+.upload-icon { display: block; margin: 0 auto 13px; }
+
+.drop-label { color: #252a50; font: 14px monospace; }
+.drop-label .browse-link { color: #3d5a9a; cursor: pointer; }
+.drop-label .browse-link:hover { color: #5a7acc; }
+
+.ext-label {
+  margin-top: 7px;
+  font: 12px monospace;
+  letter-spacing: 0.5px;
+  color: #3d4a6a;
+}
+
+/* ── Input rows ── */
+.field-row {
+  border: 0.5px solid #1a2540;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.field-row svg { flex-shrink: 0; }
+.field-login { border-color: #2a1a40; }
+
+.field-row input {
+  background: transparent !important;
+  background-color: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  outline: none;
+  font: 14px monospace;
+  color: #c0caf5 !important;
+  width: 100%;
+  box-shadow: none !important;
+}
+.field-row input::placeholder { color: #1e2a42; }
+.field-row input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 100px transparent inset !important;
+  -webkit-text-fill-color: #c0caf5 !important;
+}
+
+/* ── Buttons ── */
+.cbtn {
+  display: block; width: 100%; padding: 10px;
+  background: transparent; border: 0.5px solid #243870;
+  border-radius: 4px; color: #6a84c0;
+  font: 14px monospace; cursor: pointer; letter-spacing: 0.2px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.cbtn:hover { border-color: #3d5a9a; color: #8ab0e8; }
+
+.pbtn {
+  display: block; width: 100%; padding: 10px;
+  background: transparent; border: 0.5px solid #4a2a7a;
+  border-radius: 4px; color: #9a70cc;
+  font: 14px monospace; cursor: pointer; letter-spacing: 0.2px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.pbtn:hover { border-color: #6a4aaa; color: #bb9af7; }
+
+/* ── Legal ── */
+.legal { margin-top: 8px; text-align: center; font: 12px monospace; color: #141830; }
+.legal a { color: #243870; text-decoration: none; }
+.legal a:hover { color: #3d5a9a; }
+
+/* ── Login links ── */
+.login-links { display: flex; justify-content: center; gap: 12px; margin-top: 11px; }
+.lnk { color: #3a1a60; font: 12px monospace; cursor: pointer; transition: color 0.12s; }
+.lnk:hover { color: #6a4a9a; }
+.sep { color: #1e0e30; font: 12px monospace; }
+
+/* ══════════════════════════════════════
+   LAYER 2 — Terminal + Navbar
+══════════════════════════════════════ */
+#layerTerminal { flex-direction: column; }
+
+/* ── Navbar ── */
+.navbar {
+  height: 46px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(8, 9, 15, 0.96);
+  border-bottom: 0.5px solid #1a2240;
+  flex-shrink: 0;
+}
+
+.nav-icon { flex-shrink: 0; }
+
+.nav-name {
+  font: 13px monospace;
+  color: #252a42;
+  letter-spacing: 0.4px;
+}
+
+.nav-divider {
+  width: 0.5px;
+  height: 20px;
+  background: #1a2240;
+  margin: 0 4px;
+}
+
+.nav-btn {
+  background: transparent;
+  border: 0.5px solid #2a4270;
+  border-radius: 4px;
+  padding: 5px 13px;
+  font: 13px monospace;
+  color: #7aa2f7;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.nav-btn:hover { border-color: #3d5a9a; color: #8ab0e8; }
+
+.nav-btn-login {
+  margin-left: auto;
+  border-color: #3a1a60;
+  color: #7a5aaa;
+}
+.nav-btn-login:hover { border-color: #5a3a8a; color: #bb9af7; }
+
+/* ── Terminal canvas ── */
+#termCanvas { flex: 1; width: 100%; display: block; }
+
+/* ── iOS safe area ── */
+.page-overlay {
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* ── Mobile ── */
+@media (max-width: 540px) {
+  .tp     { padding: 5px 10px; font: 12px monospace; }
+  .cbtn, .pbtn { font: 13px monospace; }
+  .drop-label  { font: 13px monospace; }
+  .ext-label   { font: 11px monospace; }
+  .field-row input { font: 13px monospace; }
+  .legal, .lnk, .sep { font: 11px monospace; }
+  .card        { padding: 24px 16px; }
+  .card-form   { padding: 16px; }
+  .field-row   { padding: 9px 10px; }
+  .tab-row     { gap: 2px; }
+}
