@@ -26,7 +26,7 @@ class RepoIn(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(_STATIC, "index.html"))
+    return FileResponse(os.path.join(_STATIC, "templates", "index.html"))
 
 @app.get("/jobs")
 def list_jobs(q: str = Query(default="")):
