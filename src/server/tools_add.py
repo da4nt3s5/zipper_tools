@@ -43,12 +43,6 @@ def interactive_manifest(repo_path: str) -> dict:
     print("  3) ambos")
     kind = kind_map.get(input("> ").strip(), "file")
 
-    file_types = []
-    if kind in ("file", "both"):
-        exts = input("Extensiones soportadas (ej: .apk,.exe) [opcional]: ").strip()
-        if exts:
-            file_types.append({"ext": [e.strip() for e in exts.split(",")]})
-
     # ---------- runtime ----------
     print("\nRuntime:")
     print("  1) python")
@@ -79,8 +73,6 @@ def interactive_manifest(repo_path: str) -> dict:
         },
         "runtime": runtime
     }
-    if file_types:
-        manifest["accepts"]["file_types"] = file_types
 
     path = os.path.join(repo_path, "zipper_tools.yaml")
     with open(path, "w", encoding="utf-8") as f:
