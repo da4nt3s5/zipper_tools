@@ -7,6 +7,7 @@ import os, uuid
 from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
+from server.registry import load_tools
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -24,6 +25,23 @@ class UrlIn(BaseModel):
 class RepoIn(BaseModel):
     repo_url: str
 
+def _tools_for_ext(ext: str) -> list:
+    """Devuelve herramientas que aceptan la extensión dada."""
+    ext = ext.lower()
+    matching = []
+    for t in load_tools().values():
+        accepts = t["accepts"]
+        if accepts["kind"] not in ("file", "both"):
+            continue
+        file_types = accepts.get("file_types", [])
+        if not file_types:
+            matching.append(t)
+            continue
+        allowed = [e.lower() for ft in file_types for e in ft.get("ext", [])]
+        if ext in allowed:
+            matching.append(t)
+    return matching
+
 @app.get("/")
 def index():
     return FileResponse(os.path.join(_STATIC, "templates", "index.html"))
@@ -36,12 +54,34 @@ def list_jobs(q: str = Query(default="")):
 async def submit(file: Optional[UploadFile] = File(None), body: Optional[UrlIn] = Body(None)):
     job_id = str(uuid.uuid4())
     if file:
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        matching = _tools_for_ext(ext)
+        if not matching:
+            raise HTTPException(
+                400,
+                f"No hay herramientas registradas para archivos '{ext}'. "
+                f"Tipos soportados: {_supported_extensions()}"
+            )
         store.create_job(job_id, "file")
         await store.save_uploaded_file(job_id, file)
     elif body:
         store.create_job(job_id, "url", body.url)
     else:
         raise HTTPException(400, "Enviar archivo o URL")
+
+    store.update_status(job_id, "running")
+    res = run_job(store, job_id)
+    store.finish(job_id, "finished", res)
+    return {"job_id": job_id}
+
+def _supported_extensions() -> list:
+    """Lista todas las extensiones con al menos una herramienta registrada."""
+    exts = set()
+    for t in load_tools().values():
+        for ft in t["accepts"].get("file_types", []):
+            for e in ft.get("ext", []):
+                exts.add(e.lower())
+    return sorted(exts)
 
     store.update_status(job_id, "running")
     res = run_job(store, job_id)
