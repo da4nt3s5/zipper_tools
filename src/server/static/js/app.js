@@ -13,6 +13,20 @@
 
   /* ── Helpers ── */
   function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+  function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y,     x + w, y + r,     r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x,     y + h, x,     y + h - r, r);
+    ctx.lineTo(x,     y + r);
+    ctx.arcTo(x,     y,     x + r, y,         r);
+    ctx.closePath();
+  }
   function rh(n)    { return Array.from({ length: n }, () => ri(0, 15).toString(16)).join(''); }
   function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
@@ -184,19 +198,32 @@
 
     // Scrollbar
     if (total > tmax) {
-      const barH    = th * (tmax / total);
-      const barTop  = th * (start / total);
-      termCtx.fillStyle = '#1a2240';
-      termCtx.fillRect(tw - 4, 0, 4, th);
-      termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#2a3860';
-      termCtx.fillRect(tw - 4, barTop, 4, barH);
-    }
+      const SW      = 10;                          // scrollbar width
+      const PAD     = 4;                           // top/bottom padding
+      const trackX  = tw - SW - 6;
+      const trackH  = th - PAD * 2;
+      const thumbH  = Math.max(30, trackH * (tmax / total));
+      const thumbY  = PAD + (trackH - thumbH) * (1 - scrollOffset / Math.max(1, total - tmax));
+      const R       = SW / 2;
 
-    // Scroll hint when there's content above
-    if (scrollOffset === 0 && total > tmax) {
-      termCtx.fillStyle = '#2a3860';
-      termCtx.font = '11px monospace';
-      termCtx.fillText('↑ scroll to see full output', tw - 180, th - 6);
+      // Track
+      termCtx.fillStyle = '#0e1220';
+      _roundRect(termCtx, trackX, PAD, SW, trackH, R);
+      termCtx.fill();
+
+      // Thumb
+      termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
+      _roundRect(termCtx, trackX, thumbY, SW, thumbH, R);
+      termCtx.fill();
+
+      // Arrow up ▲
+      termCtx.fillStyle = scrollOffset < total - tmax ? '#3d5a9a' : '#1e2e52';
+      termCtx.font = '10px monospace';
+      termCtx.fillText('▲', trackX + 1, PAD - 1);
+
+      // Arrow down ▼
+      termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
+      termCtx.fillText('▼', trackX + 1, th - 2);
       termCtx.font = '14px monospace';
     }
   }
