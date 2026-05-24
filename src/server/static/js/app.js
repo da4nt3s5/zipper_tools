@@ -161,7 +161,8 @@
     if (line.includes('❯') || line.includes('~/')) return '#7dcfff';
     if (line.includes('✓'))                        return '#9ece6a';
     if (line.includes('finished'))                  return '#9ece6a';
-    if (line.includes('Error') || line.includes('error')) return '#f87171';
+    if (line.includes('encrypted') || line.includes('Error') || line.includes('error')) return '#f87171';
+    if (line.includes('warning') || line.includes('Warning')) return '#e0af68';
     if (line.includes('[domain]'))                  return '#60a5fa';
     if (line.includes('[ip]'))                      return '#f59e0b';
     if (line.includes('[key]') || line.includes('[api_key]') || line.includes('[firebase]')) return '#f87171';

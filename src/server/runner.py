@@ -30,8 +30,13 @@ def run_job(store, job_id):
 
         start = time.time()
         try:
-            subprocess.run(cmd, shell=True, check=True)
-            status, err = "ok", None
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            combined = (proc.stdout + proc.stderr).strip()
+            if combined:
+                with open(os.path.join(outdir, "output.txt"), "w", encoding="utf-8") as f:
+                    f.write(combined)
+            status = "ok" if proc.returncode == 0 else "error"
+            err = None if proc.returncode == 0 else f"exit code {proc.returncode}"
         except Exception as e:
             status, err = "error", str(e)
 
