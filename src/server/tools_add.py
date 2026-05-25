@@ -13,8 +13,9 @@ import argparse
 # =================================================
 # Paths correctos para ejecución directa
 # =================================================
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOOLS_DIR = os.path.join(BASE_DIR, "tools_storage")
+BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HOME_DIR = os.path.join(os.path.expanduser("~"), ".zipper_tools")
+TOOLS_DIR = os.environ.get("ZIPPER_TOOLS_DIR", os.path.join(_HOME_DIR, "tools_storage"))
 
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)

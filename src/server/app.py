@@ -13,11 +13,16 @@ from server.auth import (
     hash_password, verify_password, ROLES,
 )
 
-_BASE   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+_HERE   = os.path.dirname(os.path.abspath(__file__))
+_BASE   = os.path.dirname(_HERE)
+_STATIC = os.path.join(_HERE, "static")
+
+# Work dir: env var > ~/.zipper_tools/work (survives reinstalls)
+_DEFAULT_WORK = os.path.join(os.path.expanduser("~"), ".zipper_tools", "work")
+_WORK_DIR = os.environ.get("ZIPPER_WORK_DIR", _DEFAULT_WORK)
 
 app   = FastAPI(title="zipper_tools")
-store = JobStore(os.path.join(_BASE, "tools_runtime", "work"))
+store = JobStore(_WORK_DIR)
 
 app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 

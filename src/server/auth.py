@@ -2,14 +2,16 @@ import hashlib, hmac as _hmac, base64, json, time, secrets, os
 from typing import Optional
 
 _HERE        = os.path.dirname(os.path.abspath(__file__))
-_SECRET_FILE = os.path.join(_HERE, ".secret")
-_USERS_FILE  = os.path.join(_HERE, "users_db.json")
+_HOME_DIR    = os.path.join(os.path.expanduser("~"), ".zipper_tools")
+_SECRET_FILE = os.environ.get("ZIPPER_SECRET_FILE", os.path.join(_HOME_DIR, ".secret"))
+_USERS_FILE  = os.environ.get("ZIPPER_USERS_FILE",  os.path.join(_HOME_DIR, "users_db.json"))
 
 # ── Secret key (auto-generated once, persisted) ─────────────
 def _load_secret() -> str:
     if os.path.exists(_SECRET_FILE):
         with open(_SECRET_FILE) as f:
             return f.read().strip()
+    os.makedirs(os.path.dirname(_SECRET_FILE), exist_ok=True)
     key = secrets.token_hex(32)
     with open(_SECRET_FILE, "w") as f:
         f.write(key)
@@ -69,6 +71,7 @@ def load_users() -> dict:
         return json.load(f)
 
 def save_users(users: dict):
+    os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     with open(_USERS_FILE, "w") as f:
         json.dump(users, f, indent=2)
 
