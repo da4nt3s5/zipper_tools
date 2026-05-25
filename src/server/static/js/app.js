@@ -567,15 +567,19 @@
     preResultLines = []; resultBlocks = []; postResultLines = [];
     startRenderLoop();
 
-    const isJobId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query.trim());
+    const q = query.trim();
+    const isJobId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+
     if (isJobId) {
-      await typePrompt(`~/zipper_tools ❯ zipper jobs ${safeText(query, 40)}`);
+      // ── Direct job lookup ──────────────────────────────────
+      await typePrompt(`~/zipper_tools ❯ zipper jobs ${safeText(q, 40)}`);
       pushLine('  Looking up…');
       try {
-        const job = await apiGetJob(query.trim());
+        const job = await apiGetJob(q);
         replaceLast(`  Job ID   ${safeText(job.job_id, 40)}`);
         pushLine(`  Kind     ${safeText(job.kind, 20)}`);
         pushLine(`  Status   ${safeText(job.status, 20)}`);
+        if (job.filename) pushLine(`  File     ${safeText(job.filename, 40)}`);
         pushLine('');
 
         preResultLines  = [...tlines];
@@ -585,32 +589,44 @@
           : ['  No findings', '', '~/zipper_tools ❯ '];
         rebuildTlines();
         scrollToResults();
-
       } catch (err) {
         replaceLast(`  Error    ${safeText(err.message, 100)}`);
         pushLine('');
         pushLine('~/zipper_tools ❯ ');
+        scrollToTop();
       }
+
     } else {
-      await typePrompt(`~/zipper_tools ❯ zipper jobs --search "${safeText(query, 60)}"`);
-      pushLine('  Searching…');
+      // ── List / search ──────────────────────────────────────
+      const prompt = q
+        ? `~/zipper_tools ❯ zipper jobs --search "${safeText(q, 60)}"`
+        : `~/zipper_tools ❯ zipper jobs`;
+      await typePrompt(prompt);
+      pushLine(q ? '  Searching…' : '  Loading recent jobs…');
       try {
-        const { jobs } = await apiListJobs(query);
+        const { jobs } = await apiListJobs(q);
         replaceLast(`  ${jobs.length} job(s) found`);
         pushLine('');
-        for (const j of jobs) {
-          const label = j.filename ? safeText(j.filename, 24) : (j.url ? safeText(j.url, 24) : '-');
-          pushLine(`  ${safeText(j.job_id, 36)}  ${safeText(j.kind || '-', 6)}  ${safeText(j.status, 10)}  ${label}`);
-          await sleep(30);
+        if (jobs.length) {
+          pushLine(`  ${'JOB ID'.padEnd(36)}  ${'KIND'.padEnd(6)}  ${'STATUS'.padEnd(10)}  FILE / URL`);
+          pushLine(`  ${'─'.repeat(36)}  ${'─'.repeat(6)}  ${'─'.repeat(10)}  ${'─'.repeat(24)}`);
+          for (const j of jobs) {
+            const label = j.filename ? safeText(j.filename, 28)
+                        : j.url     ? safeText(j.url, 28)
+                        : '-';
+            pushLine(`  ${safeText(j.job_id, 36)}  ${safeText(j.kind || '-', 6)}  ${safeText(j.status, 10)}  ${label}`);
+            await sleep(20);
+          }
+        } else {
+          pushLine(q ? '  No matching jobs' : '  No jobs yet');
         }
-        if (!jobs.length) pushLine('  No matching jobs');
       } catch (err) { replaceLast(`  Error    ${safeText(err.message, 100)}`); }
       pushLine('');
       pushLine('~/zipper_tools ❯ ');
+      scrollToTop();
     }
 
     cursorLine = '~/zipper_tools ❯ ';
-    scrollToTop();
   }
 
   /* ══════════════════════════════════════
@@ -638,7 +654,6 @@
   /* SEARCH */
   document.getElementById('submitSearch').addEventListener('click', () => {
     const val = document.getElementById('searchInput').value.trim();
-    if (!val) { shakeField('#tc-search .field-row'); return; }
     showTerminal();
     setTimeout(() => runSearch(val), 320);
   });
