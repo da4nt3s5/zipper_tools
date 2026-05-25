@@ -243,22 +243,18 @@
       }
     }
 
-    if (total > tmax) {
-      const SW     = 10, PAD = 4;
-      const trackX = tw - SW - 6;
-      const trackH = th - PAD * 2;
-      const thumbH = Math.max(30, trackH * (tmax / total));
-      const thumbY = PAD + (trackH - thumbH) * (1 - scrollOffset / Math.max(1, total - tmax));
-      const R      = SW / 2;
+    const g = _sbGeo();
+    if (g) {
+      const R = g.SW / 2;
       termCtx.fillStyle = '#0e1220';
-      _roundRect(termCtx, trackX, PAD, SW, trackH, R); termCtx.fill();
-      termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
-      _roundRect(termCtx, trackX, thumbY, SW, thumbH, R); termCtx.fill();
+      _roundRect(termCtx, g.trackX, g.PAD, g.SW, g.trackH, R); termCtx.fill();
+      termCtx.fillStyle = sbDrag ? '#5a7acc' : (scrollOffset > 0 ? '#3d5a9a' : '#1e2e52');
+      _roundRect(termCtx, g.trackX, g.thumbY, g.SW, g.thumbH, R); termCtx.fill();
       termCtx.font = '10px monospace';
-      termCtx.fillStyle = scrollOffset < total - tmax ? '#3d5a9a' : '#1e2e52';
-      termCtx.fillText('▲', trackX + 1, PAD - 1);
+      termCtx.fillStyle = scrollOffset < g.maxOff ? '#3d5a9a' : '#1e2e52';
+      termCtx.fillText('▲', g.trackX + 1, g.PAD - 1);
       termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
-      termCtx.fillText('▼', trackX + 1, th - 2);
+      termCtx.fillText('▼', g.trackX + 1, th - 2);
       termCtx.font = '14px monospace';
     }
   }
@@ -273,10 +269,64 @@
     })();
   }
 
+  // ── Scrollbar geometry helper ──────────────────────────────
+  function _sbGeo() {
+    const total = tlines.length;
+    if (total <= tmax || !tw || !th) return null;
+    const SW = 10, PAD = 4;
+    const trackX = tw - SW - 6;
+    const trackH = th - PAD * 2;
+    const thumbH = Math.max(30, trackH * (tmax / total));
+    const maxOff = Math.max(1, total - tmax);
+    const thumbY = PAD + (trackH - thumbH) * (1 - scrollOffset / maxOff);
+    return { trackX, trackH, thumbH, thumbY, PAD, SW, maxOff };
+  }
+
+  // ── Scrollbar drag state ────────────────────────────────────
+  let sbDrag = false, sbDragY0 = 0, sbDragOff0 = 0;
+
+  termCanvas.addEventListener('mousedown', e => {
+    const g = _sbGeo(); if (!g) return;
+    const rect = termCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (x < g.trackX || x > g.trackX + g.SW) return;
+    if (y < g.PAD    || y > g.PAD + g.trackH) return;
+    e.preventDefault();
+    if (y >= g.thumbY && y <= g.thumbY + g.thumbH) {
+      sbDrag = true; sbDragY0 = y; sbDragOff0 = scrollOffset;
+    } else {
+      // Click on track → jump
+      const ratio = (y - g.PAD) / (g.trackH - g.thumbH);
+      scrollOffset = Math.round(Math.max(0, Math.min(g.maxOff * (1 - ratio), g.maxOff)));
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!sbDrag) return;
+    const g = _sbGeo(); if (!g) { sbDrag = false; return; }
+    const rect = termCanvas.getBoundingClientRect();
+    const dy   = (e.clientY - rect.top) - sbDragY0;
+    const movable = g.trackH - g.thumbH;
+    if (movable <= 0) return;
+    scrollOffset = Math.max(0, Math.min(Math.round(sbDragOff0 - (dy / movable) * g.maxOff), g.maxOff));
+  });
+
+  window.addEventListener('mouseup', () => { sbDrag = false; });
+
   termCanvas.addEventListener('mousemove', e => {
+    const rect = termCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+
+    // Check scrollbar hover
+    const g = _sbGeo();
+    if (g && x >= g.trackX && x <= g.trackX + g.SW && y >= g.PAD && y <= g.PAD + g.trackH) {
+      termCanvas.style.cursor = 'ns-resize';
+      return;
+    }
+
+    // Check block header hover
     if (!resultBlocks.length) { termCanvas.style.cursor = ''; return; }
-    const rect       = termCanvas.getBoundingClientRect();
-    const clickedRow = Math.floor((e.clientY - rect.top) / TLH);
+    const clickedRow = Math.floor(y / TLH);
     const total      = tlines.length;
     const end        = Math.max(0, total - scrollOffset);
     const start      = Math.max(0, end - tmax);
