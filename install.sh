@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="git@github.com:da4nt3s5/zipper_tools.git"
+REPO_URL="https://github.com/da4nt3s5/zipper_tools.git"
 REPO_DIR="zipper_tools"
 
 echo "=== zipper_tools Installer ==="
@@ -13,12 +13,18 @@ need() { command -v "$1" >/dev/null || { echo "[!] Falta $1"; exit 1; }; }
 need git
 
 # -------------------------
-# Clonar repositorio
+# Clonar o actualizar repositorio
 # -------------------------
 echo
-echo "[*] Clonando repositorio..."
-git clone "$REPO_URL" "$REPO_DIR"
-cd "$REPO_DIR"
+if [ -d "$REPO_DIR/.git" ]; then
+    echo "[*] Repositorio ya existe — actualizando..."
+    git -C "$REPO_DIR" pull --ff-only
+    cd "$REPO_DIR"
+else
+    echo "[*] Clonando repositorio..."
+    git clone "$REPO_URL" "$REPO_DIR"
+    cd "$REPO_DIR"
+fi
 
 # -------------------------
 # Python venv + dependencias
