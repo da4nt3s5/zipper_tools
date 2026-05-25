@@ -82,6 +82,10 @@ echo "[*] Creando virtualenv con $PYTHON_BIN (Python $PY_VERSION)..."
 "$VENV_DIR/bin/pip" install -r requirements.txt
 
 echo
+echo "[*] Inicializando usuario admin..."
+"$VENV_DIR/bin/python3" src/server/init_admin.py
+
+echo
 echo "[✓] zipper_tools instalado correctamente"
 echo "    Entra al directorio: cd $REPO_DIR"
 echo "    Activa el entorno:   source .venv/bin/activate"

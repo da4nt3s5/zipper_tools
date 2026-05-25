@@ -1,11 +1,6 @@
 /* ============================================================
    app.js — zipper_tools
-   Flow:
-     1. Page load  → modal centered, no navbar, bg frozen
-     2. Submit     → modal fades out, navbar + terminal appear,
-                     terminal types the command then calls real API
-     3. new submit → terminal hides, modal reappears
-     4. nav login  → modal reappears with LOGIN tab active
+   Layers: 1=modal  2=terminal  3=addTool  4=users
    ============================================================ */
 
 (function () {
@@ -13,31 +8,76 @@
 
   /* ── Helpers ── */
   function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
-
-  function _roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y,     x + w, y + r,     r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x,     y + h, x,     y + h - r, r);
-    ctx.lineTo(x,     y + r);
-    ctx.arcTo(x,     y,     x + r, y,         r);
-    ctx.closePath();
-  }
   function rh(n)    { return Array.from({ length: n }, () => ri(0, 15).toString(16)).join(''); }
   function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-  /* ── Safe text (canvas fillText is already XSS-safe, but truncate long lines) ── */
   function safeText(str, maxLen) {
     const s = String(str == null ? '' : str);
     return maxLen && s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
   }
 
+  function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);  ctx.arcTo(x,     y + h, x,     y + h - r, r);
+    ctx.lineTo(x,     y + r);  ctx.arcTo(x,     y,     x + r, y,         r);
+    ctx.closePath();
+  }
+
   /* ══════════════════════════════════════
-     1. BACKGROUND CANVAS (frozen on load)
+     0. AUTH STATE
+  ══════════════════════════════════════ */
+  let authToken = localStorage.getItem('zt_token') || null;
+  let authUser  = null;  // { username, role, must_change_password }
+
+  function ah(extra) {
+    const h = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+    return Object.assign(h, extra || {});
+  }
+
+  async function checkAuth() {
+    if (!authToken) return;
+    try {
+      const r = await fetch('/auth/me', { headers: ah() });
+      if (!r.ok) { _clearAuth(); return; }
+      authUser = await r.json();
+      _applyAuthUI();
+      if (authUser.must_change_password) {
+        document.getElementById('tabChangePwd').style.display = '';
+        switchTab('changepwd');
+      }
+    } catch { _clearAuth(); }
+  }
+
+  function _clearAuth() {
+    authToken = null; authUser = null;
+    localStorage.removeItem('zt_token');
+  }
+
+  function _applyAuthUI() {
+    if (!authUser) return;
+    // navbar user info
+    const info = document.getElementById('navUserInfo');
+    info.textContent = `${authUser.username}  [${authUser.role}]`;
+    info.style.display = '';
+    // login → logout
+    const btn = document.getElementById('btnNavLogin');
+    btn.textContent = 'logout';
+    btn.dataset.mode = 'logout';
+    // add tool (admin + user)
+    if (['admin', 'user'].includes(authUser.role)) {
+      document.getElementById('btnAddTool').style.display = '';
+    }
+    // users panel (admin only)
+    if (authUser.role === 'admin') {
+      document.getElementById('btnUsers').style.display = '';
+    }
+  }
+
+  /* ══════════════════════════════════════
+     1. BACKGROUND CANVAS
   ══════════════════════════════════════ */
   const bgCanvas = document.getElementById('zbg');
   const bgCtx    = bgCanvas.getContext('2d');
@@ -79,7 +119,6 @@
     const maxL = Math.floor(h / BLH) + 1;
     const lines = BG_SEED.map(fn => fn());
     while (lines.length < maxL) lines.unshift('');
-
     bgCtx.fillStyle = '#070810';
     bgCtx.fillRect(0, 0, w, h);
     bgCtx.globalAlpha = 0.22;
@@ -99,39 +138,40 @@
   ══════════════════════════════════════ */
   const layerModal    = document.getElementById('layerModal');
   const layerTerminal = document.getElementById('layerTerminal');
+  const layerAddTool  = document.getElementById('layerAddTool');
+  const layerUsers    = document.getElementById('layerUsers');
 
-  function showModal() {
-    layerTerminal.classList.remove('on');
-    layerModal.classList.add('on');
+  function showLayer(el) {
+    [layerModal, layerTerminal, layerAddTool, layerUsers]
+      .forEach(l => l.classList.remove('on'));
+    el.classList.add('on');
   }
 
+  function showModal()    { showLayer(layerModal); }
   function showTerminal() {
-    layerModal.classList.remove('on');
-    layerTerminal.classList.add('on');
+    showLayer(layerTerminal);
+    if (!animRunning) { resizeTerm(); startRenderLoop(); }
   }
+  function showAddTool()  { showLayer(layerAddTool); }
+  function showUsers()    { showLayer(layerUsers); loadUsersList(); }
 
   /* ══════════════════════════════════════
      3. TAB SWITCHING
   ══════════════════════════════════════ */
-  const ALL_TABS = ['file', 'url', 'search', 'login'];
+  const ALL_TABS = ['file', 'url', 'search', 'login', 'changepwd'];
 
   function switchTab(name) {
     document.querySelectorAll('.tp[data-t]').forEach(t => t.classList.remove('active'));
     const tab = document.querySelector(`.tp[data-t="${name}"]`);
     if (tab) tab.classList.add('active');
-
     ALL_TABS.forEach(id => {
       const el = document.getElementById('tc-' + id);
       if (!el) return;
       el.classList.remove('active-tc');
       el.style.display = 'none';
     });
-
     const active = document.getElementById('tc-' + name);
-    if (active) {
-      active.style.display = 'block';
-      active.classList.add('active-tc');
-    }
+    if (active) { active.style.display = 'block'; active.classList.add('active-tc'); }
   }
 
   document.querySelectorAll('.tp[data-t]').forEach(tab => {
@@ -144,11 +184,11 @@
   const termCanvas = document.getElementById('termCanvas');
   const termCtx    = termCanvas.getContext('2d');
   const TLH        = 18;
-  let tlines       = [];      // all lines, never truncated
+  let tlines       = [];
   let tw, th, tmax;
   let cursorLine   = null;
   let animRunning  = false;
-  let scrollOffset = 0;       // lines scrolled up from bottom (0 = bottom)
+  let scrollOffset = 0;
 
   function resizeTerm() {
     const nav = document.querySelector('.navbar');
@@ -177,9 +217,9 @@
     termCtx.fillRect(0, 0, tw, th);
     termCtx.font = '14px monospace';
 
-    const total  = tlines.length;
-    const end    = Math.max(0, total - scrollOffset);
-    const start  = Math.max(0, end - tmax);
+    const total   = tlines.length;
+    const end     = Math.max(0, total - scrollOffset);
+    const start   = Math.max(0, end - tmax);
     const visible = tlines.slice(start, end);
 
     visible.forEach((line, i) => {
@@ -187,7 +227,6 @@
       termCtx.fillText(line, 14, (i + 1) * TLH);
     });
 
-    // Cursor — only shown when at the bottom
     if (cursorLine !== null && scrollOffset === 0) {
       const row = Math.min(total, tmax);
       const cx  = 14 + termCtx.measureText(cursorLine).width;
@@ -197,32 +236,20 @@
       }
     }
 
-    // Scrollbar
     if (total > tmax) {
-      const SW      = 10;                          // scrollbar width
-      const PAD     = 4;                           // top/bottom padding
-      const trackX  = tw - SW - 6;
-      const trackH  = th - PAD * 2;
-      const thumbH  = Math.max(30, trackH * (tmax / total));
-      const thumbY  = PAD + (trackH - thumbH) * (1 - scrollOffset / Math.max(1, total - tmax));
-      const R       = SW / 2;
-
-      // Track
+      const SW     = 10, PAD = 4;
+      const trackX = tw - SW - 6;
+      const trackH = th - PAD * 2;
+      const thumbH = Math.max(30, trackH * (tmax / total));
+      const thumbY = PAD + (trackH - thumbH) * (1 - scrollOffset / Math.max(1, total - tmax));
+      const R      = SW / 2;
       termCtx.fillStyle = '#0e1220';
-      _roundRect(termCtx, trackX, PAD, SW, trackH, R);
-      termCtx.fill();
-
-      // Thumb
+      _roundRect(termCtx, trackX, PAD, SW, trackH, R); termCtx.fill();
       termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
-      _roundRect(termCtx, trackX, thumbY, SW, thumbH, R);
-      termCtx.fill();
-
-      // Arrow up ▲
-      termCtx.fillStyle = scrollOffset < total - tmax ? '#3d5a9a' : '#1e2e52';
+      _roundRect(termCtx, trackX, thumbY, SW, thumbH, R); termCtx.fill();
       termCtx.font = '10px monospace';
+      termCtx.fillStyle = scrollOffset < total - tmax ? '#3d5a9a' : '#1e2e52';
       termCtx.fillText('▲', trackX + 1, PAD - 1);
-
-      // Arrow down ▼
       termCtx.fillStyle = scrollOffset > 0 ? '#3d5a9a' : '#1e2e52';
       termCtx.fillText('▼', trackX + 1, th - 2);
       termCtx.font = '14px monospace';
@@ -239,7 +266,6 @@
     })();
   }
 
-  // Scroll with mouse wheel
   termCanvas.addEventListener('wheel', e => {
     e.preventDefault();
     const step = e.deltaMode === 1 ? 3 : Math.ceil(Math.abs(e.deltaY) / 40);
@@ -249,7 +275,6 @@
     ));
   }, { passive: false });
 
-  // Scroll with keyboard when terminal is visible
   window.addEventListener('keydown', e => {
     if (!layerTerminal.classList.contains('on')) return;
     const maxOff = Math.max(0, tlines.length - tmax);
@@ -259,21 +284,9 @@
     if (e.key === 'End')       scrollOffset = 0;
   });
 
-  function pushLine(line) {
-    tlines.push(line);
-    // Auto-scroll to bottom during animation (unless user has scrolled up)
-    if (scrollOffset === 0 && animRunning) scrollOffset = 0;
-  }
-
-  /** Replaces the last pushed line in-place. */
-  function replaceLast(line) {
-    if (tlines.length > 0) tlines[tlines.length - 1] = line;
-  }
-
-  /** Scroll to the top of all accumulated lines. */
-  function scrollToTop() {
-    scrollOffset = Math.max(0, tlines.length - tmax);
-  }
+  function pushLine(line) { tlines.push(line); }
+  function replaceLast(line) { if (tlines.length > 0) tlines[tlines.length - 1] = line; }
+  function scrollToTop() { scrollOffset = Math.max(0, tlines.length - tmax); }
 
   async function typePrompt(text) {
     for (let c = 0; c <= text.length; c++) {
@@ -285,31 +298,37 @@
     await sleep(130);
   }
 
+  window.addEventListener('resize', () => {
+    if (layerTerminal.classList.contains('on')) resizeTerm();
+  });
+
   /* ══════════════════════════════════════
      5. API HELPERS
   ══════════════════════════════════════ */
   async function apiSubmitFile(fileObj) {
     const fd = new FormData();
     fd.append('file', fileObj);
-    const r = await fetch('/submit', { method: 'POST', body: fd });
+    const r = await fetch('/submit', { method: 'POST', headers: ah(), body: fd });
     const body = await r.json();
+    if (r.status === 401) throw new Error('Login required');
     if (!r.ok) throw new Error(body.detail || r.statusText);
-    return body; // { job_id }
+    return body;
   }
 
   async function apiSubmitUrl(url) {
     const r = await fetch('/submit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: ah({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ type: 'url', url }),
     });
     const body = await r.json();
+    if (r.status === 401) throw new Error('Login required');
     if (!r.ok) throw new Error(body.detail || r.statusText);
-    return body; // { job_id }
+    return body;
   }
 
   async function apiGetJob(jobId) {
-    const r = await fetch(`/jobs/${encodeURIComponent(jobId)}`);
+    const r = await fetch(`/jobs/${encodeURIComponent(jobId)}`, { headers: ah() });
     const body = await r.json();
     if (!r.ok) throw new Error(body.detail || r.statusText);
     return body;
@@ -317,47 +336,38 @@
 
   async function apiListJobs(q) {
     const url = q ? `/jobs?q=${encodeURIComponent(q)}` : '/jobs';
-    const r = await fetch(url);
+    const r = await fetch(url, { headers: ah() });
     const body = await r.json();
     if (!r.ok) throw new Error(body.detail || r.statusText);
-    return body; // { jobs: [...] }
+    return body;
   }
 
   /* ══════════════════════════════════════
      6. RESULTS FORMATTER
   ══════════════════════════════════════ */
   function* formatJobResults(job) {
-    const tools = job.results && job.results.tools ? job.results.tools : [];
+    const tools = job.results?.tools || [];
     let hasAny = false;
-
     for (const t of tools) {
       const output = t.output || {};
       for (const fname of Object.keys(output)) {
         const content = output[fname];
         if (!content) continue;
-
-        // Structured findings (hallazgos)
         if (content.hallazgos && Array.isArray(content.hallazgos)) {
           for (const finding of content.hallazgos) {
             const tipo = safeText(finding.tipo, 60);
-            const results = finding.results || [];
-            if (!results.length) continue;
-            yield `  [${tipo}]`;
-            for (const r of results) {
-              yield `    ${safeText(r, 120)}`;
+            for (const r of (finding.results || [])) {
+              yield `  [${tipo}]  ${safeText(r, 110)}`;
               hasAny = true;
             }
           }
         } else if (typeof content === 'string') {
-          const lines = content.split('\n').slice(0, 80);
-          for (const l of lines) {
-            yield `  ${safeText(l.trim(), 120)}`;
-            hasAny = true;
+          for (const l of content.split('\n').slice(0, 120)) {
+            if (l.trim()) { yield `  ${safeText(l.trim(), 120)}`; hasAny = true; }
           }
         }
       }
     }
-
     if (!hasAny) yield '  No findings';
   }
 
@@ -366,9 +376,7 @@
   ══════════════════════════════════════ */
   async function runSubmit(type, displayArg, apiCall) {
     resizeTerm();
-    tlines = [];
-    scrollOffset = 0;
-    cursorLine = null;
+    tlines = []; scrollOffset = 0; cursorLine = null;
     startRenderLoop();
 
     await typePrompt(`~/zipper_tools ❯ zipper submit ${displayArg}`);
@@ -377,20 +385,16 @@
     try {
       const { job_id } = await apiCall();
       replaceLast('  Submitting…  ████████████  ✓');
-
       pushLine(`  Job ID   ${safeText(job_id, 40)}`);
       pushLine('  Status   running…');
       await sleep(400);
-
       const job = await apiGetJob(job_id);
-      replaceLast(`  Status   finished`);
+      replaceLast('  Status   finished');
       pushLine('');
-
       for (const line of formatJobResults(job)) {
         pushLine(line);
         await sleep(20);
       }
-
     } catch (err) {
       replaceLast(`  Error    ${safeText(err.message, 100)}`);
     }
@@ -403,29 +407,21 @@
 
   async function runSearch(query) {
     resizeTerm();
-    tlines = [];
-    scrollOffset = 0;
-    cursorLine = null;
+    tlines = []; scrollOffset = 0; cursorLine = null;
     startRenderLoop();
 
     const isJobId = /^[0-9a-f-]{8,36}$/i.test(query.trim());
-
     if (isJobId) {
       await typePrompt(`~/zipper_tools ❯ zipper jobs ${safeText(query, 40)}`);
-      pushLine('  Looking up job…');
+      pushLine('  Looking up…');
       try {
         const job = await apiGetJob(query.trim());
         replaceLast(`  Job ID   ${safeText(job.job_id, 40)}`);
         pushLine(`  Kind     ${safeText(job.kind, 20)}`);
         pushLine(`  Status   ${safeText(job.status, 20)}`);
         pushLine('');
-        for (const line of formatJobResults(job)) {
-          pushLine(line);
-          await sleep(20);
-        }
-      } catch (err) {
-        replaceLast(`  Error    ${safeText(err.message, 100)}`);
-      }
+        for (const line of formatJobResults(job)) { pushLine(line); await sleep(20); }
+      } catch (err) { replaceLast(`  Error    ${safeText(err.message, 100)}`); }
     } else {
       await typePrompt(`~/zipper_tools ❯ zipper jobs --search "${safeText(query, 60)}"`);
       pushLine('  Searching…');
@@ -438,9 +434,7 @@
           await sleep(30);
         }
         if (!jobs.length) pushLine('  No matching jobs');
-      } catch (err) {
-        replaceLast(`  Error    ${safeText(err.message, 100)}`);
-      }
+      } catch (err) { replaceLast(`  Error    ${safeText(err.message, 100)}`); }
     }
 
     pushLine('');
@@ -463,7 +457,6 @@
   document.getElementById('submitUrl').addEventListener('click', () => {
     const val = document.getElementById('urlInput').value.trim();
     if (!val) { shakeField('#tc-url .field-row'); return; }
-    // Basic URL validation
     try { new URL(val); } catch { shakeField('#tc-url .field-row'); return; }
     showTerminal();
     setTimeout(() => runSubmit('url', `"${safeText(val, 80)}"`, () => apiSubmitUrl(val)), 320);
@@ -483,7 +476,7 @@
     if (e.key === 'Enter') document.getElementById('submitSearch').click();
   });
 
-  /* FILE — click to browse */
+  /* FILE — browse */
   const fileInput  = document.getElementById('fileInput');
   const browseLink = document.querySelector('.browse-link');
   if (browseLink) browseLink.addEventListener('click', () => fileInput.click());
@@ -491,23 +484,20 @@
   fileInput.addEventListener('change', () => {
     const f = fileInput.files[0];
     if (!f) return;
+    fileInput.value = '';  // reset so same file can be selected again
     showTerminal();
     setTimeout(() => runSubmit('file', safeText(f.name, 40), () => apiSubmitFile(f)), 320);
   });
 
   /* FILE — drag & drop */
-  const dropCard = document.querySelector('#tc-file .card');
+  const dropCard = document.getElementById('dropCard');
   if (dropCard) {
     dropCard.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropCard.style.borderColor = '#3d5a9a';
+      e.preventDefault(); dropCard.style.borderColor = '#3d5a9a';
     });
-    dropCard.addEventListener('dragleave', () => {
-      dropCard.style.borderColor = '';
-    });
+    dropCard.addEventListener('dragleave', () => { dropCard.style.borderColor = ''; });
     dropCard.addEventListener('drop', e => {
-      e.preventDefault();
-      dropCard.style.borderColor = '';
+      e.preventDefault(); dropCard.style.borderColor = '';
       const f = e.dataTransfer.files[0];
       if (!f) return;
       showTerminal();
@@ -520,39 +510,282 @@
   ══════════════════════════════════════ */
   document.getElementById('btnNewSubmit').addEventListener('click', () => {
     animRunning = false;
+    fileInput.value = '';  // reset so re-selecting same file works
     switchTab('file');
     showModal();
   });
 
-  document.getElementById('btnNavLogin').addEventListener('click', () => {
-    animRunning = false;
-    switchTab('login');
-    showModal();
+  document.getElementById('btnCloseModal').addEventListener('click', () => {
+    showTerminal();
+  });
+
+  document.getElementById('btnAddTool').addEventListener('click', () => {
+    document.getElementById('atMsg').textContent = '';
+    showAddTool();
+  });
+
+  document.getElementById('btnUsers').addEventListener('click', () => {
+    showUsers();
+  });
+
+  document.getElementById('btnNavLogin').addEventListener('click', function () {
+    if (this.dataset.mode === 'logout') {
+      _clearAuth();
+      this.textContent = 'login';
+      this.dataset.mode = '';
+      document.getElementById('navUserInfo').style.display = 'none';
+      document.getElementById('btnAddTool').style.display = 'none';
+      document.getElementById('btnUsers').style.display = 'none';
+      switchTab('login');
+      showModal();
+    } else {
+      animRunning = false;
+      switchTab('login');
+      showModal();
+    }
   });
 
   /* ══════════════════════════════════════
-     10. LOGIN (placeholder)
+     10. LOGIN
   ══════════════════════════════════════ */
-  document.getElementById('signinBtn').addEventListener('click', function () {
-    const email = document.querySelector('#tc-login input[type="email"]').value.trim();
-    if (!email) {
-      this.style.borderColor = '#6a2a4a';
-      this.style.color       = '#c06080';
-      this.textContent       = 'Enter email ↑';
-      setTimeout(() => {
-        this.style.borderColor = '';
-        this.style.color       = '';
-        this.textContent       = 'Sign in';
-      }, 1500);
+  document.getElementById('signinBtn').addEventListener('click', async function () {
+    const username = document.getElementById('loginUser').value.trim();
+    const password = document.getElementById('loginPwd').value;
+    const msgEl    = document.getElementById('loginMsg');
+
+    if (!username || !password) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Ingresa usuario y contraseña';
       return;
     }
+
     this.textContent = 'Signing in…';
-    /* TODO: replace with real auth call */
-    setTimeout(() => { this.textContent = 'Sign in'; }, 2000);
+    msgEl.textContent = '';
+
+    try {
+      const r    = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = body.detail || 'Error';
+        this.textContent = 'Sign in';
+        return;
+      }
+
+      authToken = body.token;
+      authUser  = { username: body.username, role: body.role, must_change_password: body.must_change_password };
+      localStorage.setItem('zt_token', authToken);
+      _applyAuthUI();
+      document.getElementById('loginPwd').value = '';
+      msgEl.textContent = '';
+
+      if (body.must_change_password) {
+        document.getElementById('tabChangePwd').style.display = '';
+        switchTab('changepwd');
+      } else {
+        showTerminal();
+      }
+    } catch (err) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = safeText(err.message, 80);
+    }
+    this.textContent = 'Sign in';
+  });
+
+  document.getElementById('loginUser').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('loginPwd').focus();
+  });
+  document.getElementById('loginPwd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('signinBtn').click();
   });
 
   /* ══════════════════════════════════════
-     11. INPUT STYLE FIX (browser autofill override)
+     11. CHANGE PASSWORD
+  ══════════════════════════════════════ */
+  document.getElementById('cpSubmit').addEventListener('click', async function () {
+    const newPwd  = document.getElementById('cpNewPwd').value;
+    const confirm = document.getElementById('cpConfirmPwd').value;
+    const msgEl   = document.getElementById('cpMsg');
+
+    if (!newPwd || newPwd.length < 8) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Mínimo 8 caracteres';
+      return;
+    }
+    if (newPwd !== confirm) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Las contraseñas no coinciden';
+      return;
+    }
+
+    this.textContent = 'Saving…';
+    try {
+      const r = await fetch('/auth/change-password', {
+        method: 'POST',
+        headers: ah({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ new_password: newPwd }),
+      });
+      if (!r.ok) {
+        const b = await r.json();
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = b.detail || 'Error';
+      } else {
+        msgEl.style.color = '#9ece6a';
+        msgEl.textContent = '✓ Contraseña actualizada';
+        if (authUser) authUser.must_change_password = false;
+        document.getElementById('tabChangePwd').style.display = 'none';
+        document.getElementById('cpNewPwd').value = '';
+        document.getElementById('cpConfirmPwd').value = '';
+        setTimeout(() => { showTerminal(); }, 900);
+      }
+    } catch (err) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = safeText(err.message, 80);
+    }
+    this.textContent = 'Cambiar contraseña';
+  });
+
+  /* ══════════════════════════════════════
+     12. ADD TOOL MODAL
+  ══════════════════════════════════════ */
+  document.getElementById('btnCloseAddTool').addEventListener('click', () => showTerminal());
+
+  document.getElementById('atSubmitBtn').addEventListener('click', async () => {
+    const repoUrl = document.getElementById('atRepoUrl').value.trim();
+    const msgEl   = document.getElementById('atMsg');
+
+    if (!repoUrl) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Ingresa la URL del repositorio';
+      return;
+    }
+
+    const kind        = document.querySelector('input[name="atKind"]:checked')?.value    || null;
+    const runtimeType = document.querySelector('input[name="atRuntime"]:checked')?.value || null;
+    const cmd         = document.getElementById('atCmd').value.trim() || null;
+
+    msgEl.style.color = '#8899cc';
+    msgEl.textContent = 'Adding tool…';
+
+    try {
+      const r    = await fetch('/tools/add', {
+        method: 'POST',
+        headers: ah({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ repo_url: repoUrl, kind, runtime_type: runtimeType, cmd }),
+      });
+      const body = await r.json();
+
+      if (!r.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = safeText(body.detail || 'Error', 100);
+      } else {
+        msgEl.style.color = '#9ece6a';
+        msgEl.textContent = `✓ Tool added  id: ${safeText(body.id || body.tool_id || '', 12)}`;
+        document.getElementById('atRepoUrl').value = '';
+        document.getElementById('atCmd').value = '';
+      }
+    } catch (err) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = safeText(err.message, 80);
+    }
+  });
+
+  /* ══════════════════════════════════════
+     13. USERS MODAL
+  ══════════════════════════════════════ */
+  document.getElementById('btnCloseUsers').addEventListener('click', () => showTerminal());
+
+  async function loadUsersList() {
+    const listEl = document.getElementById('usersList');
+    listEl.textContent = '';
+    try {
+      const r    = await fetch('/users', { headers: ah() });
+      if (!r.ok) return;
+      const { users } = await r.json();
+      if (!users.length) {
+        const p = document.createElement('p');
+        p.className = 'at-hint';
+        p.textContent = 'No hay usuarios';
+        listEl.appendChild(p);
+        return;
+      }
+      users.forEach(u => {
+        const row  = document.createElement('div');
+        row.className = 'user-item';
+
+        const name = document.createElement('span');
+        name.className = 'u-name';
+        name.textContent = u.username;
+
+        const role = document.createElement('span');
+        role.className = 'u-role';
+        role.textContent = u.role;
+
+        const del = document.createElement('button');
+        del.className = 'del-btn';
+        del.textContent = 'delete';
+        del.disabled = u.username === 'admin';
+        del.addEventListener('click', async () => {
+          if (!confirm(`¿Eliminar usuario "${u.username}"?`)) return;
+          const rd = await fetch(`/users/${encodeURIComponent(u.username)}`, {
+            method: 'DELETE', headers: ah(),
+          });
+          if (rd.ok) loadUsersList();
+          else {
+            const b = await rd.json();
+            document.getElementById('nuMsg').textContent = b.detail || 'Error';
+          }
+        });
+
+        row.appendChild(name);
+        row.appendChild(role);
+        row.appendChild(del);
+        listEl.appendChild(row);
+      });
+    } catch { /* ignore */ }
+  }
+
+  document.getElementById('btnCreateUser').addEventListener('click', async () => {
+    const username = document.getElementById('nuUsername').value.trim();
+    const password = document.getElementById('nuPassword').value;
+    const role     = document.getElementById('nuRole').value;
+    const msgEl    = document.getElementById('nuMsg');
+
+    if (!username || !password) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = 'Completa usuario y contraseña';
+      return;
+    }
+
+    try {
+      const r    = await fetch('/users', {
+        method: 'POST',
+        headers: ah({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ username, password, role }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = body.detail || 'Error';
+      } else {
+        msgEl.style.color = '#9ece6a';
+        msgEl.textContent = `✓ Usuario "${username}" creado`;
+        document.getElementById('nuUsername').value = '';
+        document.getElementById('nuPassword').value = '';
+        loadUsersList();
+      }
+    } catch (err) {
+      msgEl.style.color = '#f87171';
+      msgEl.textContent = safeText(err.message, 80);
+    }
+  });
+
+  /* ══════════════════════════════════════
+     14. INPUT STYLE FIX (autofill override)
   ══════════════════════════════════════ */
   document.querySelectorAll('input').forEach(inp => {
     inp.style.setProperty('background',       'transparent', 'important');
@@ -560,8 +793,9 @@
     inp.style.setProperty('color',            '#c0caf5',     'important');
   });
 
-  window.addEventListener('resize', () => {
-    if (layerTerminal.classList.contains('on')) resizeTerm();
-  });
+  /* ══════════════════════════════════════
+     15. ON LOAD — check saved auth token
+  ══════════════════════════════════════ */
+  checkAuth();
 
 })();
