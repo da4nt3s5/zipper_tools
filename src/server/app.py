@@ -183,6 +183,7 @@ def tools_add(data: AddToolIn, current_user: dict = Depends(require_roles("admin
 
 # ── Results formatting ────────────────────────────────────────
 _MAX_MATCH_LEN = 120
+_ANSI = re.compile(r'\x1b\[[0-9;]*[mGKHFJSTABCDEFf]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-Za-z]')
 
 def _parse_text_findings(text: str):
     """Parse [Category] / item lines from tool text output into hallazgos list."""
@@ -232,7 +233,7 @@ def job(job_id: str, current_user: dict = Depends(get_current_user)):
                     fpath = os.path.join(tool_outdir, fname)
                     try:
                         with open(fpath) as f:
-                            content = f.read()
+                            content = _ANSI.sub('', f.read())
                         try:
                             parsed = _json.loads(content)
                             if isinstance(parsed, dict) and "results" in parsed and isinstance(parsed["results"], list):

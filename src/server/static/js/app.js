@@ -335,10 +335,10 @@
   window.addEventListener('keydown', e => {
     if (!layerTerminal.classList.contains('on')) return;
     const maxOff = Math.max(0, tlines.length - tmax);
-    if (e.key === 'ArrowUp')   scrollOffset = Math.min(scrollOffset + 3, maxOff);
-    if (e.key === 'ArrowDown') scrollOffset = Math.max(scrollOffset - 3, 0);
-    if (e.key === 'Home')      scrollOffset = maxOff;
-    if (e.key === 'End')       scrollOffset = 0;
+    if (e.key === 'ArrowUp'   || e.key === 'PageUp')   scrollOffset = Math.min(scrollOffset + (e.key === 'PageUp' ? tmax : 3), maxOff);
+    if (e.key === 'ArrowDown' || e.key === 'PageDown') scrollOffset = Math.max(scrollOffset - (e.key === 'PageDown' ? tmax : 3), 0);
+    if (e.key === 'Home') scrollOffset = maxOff;
+    if (e.key === 'End')  scrollOffset = 0;
   });
 
   function pushLine(line) { tlines.push(line); }

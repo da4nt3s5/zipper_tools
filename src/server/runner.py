@@ -1,5 +1,6 @@
-import os, subprocess, time
-from server.registry import load_tools
+import os, subprocess, time, re
+
+_ANSI = re.compile(r'\x1b\[[0-9;]*[mGKHFJSTABCDEFf]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-Za-z]')
 
 def run_job(store, job_id):
     job = store.read_job(job_id)
@@ -31,7 +32,7 @@ def run_job(store, job_id):
         start = time.time()
         try:
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            combined = (proc.stdout + proc.stderr).strip()
+            combined = _ANSI.sub('', proc.stdout + proc.stderr).strip()
             if combined:
                 print(combined, flush=True)
                 with open(os.path.join(outdir, "output.txt"), "w", encoding="utf-8") as f:
