@@ -33,6 +33,7 @@ def run_job(store, job_id):
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             combined = (proc.stdout + proc.stderr).strip()
             if combined:
+                print(combined, flush=True)
                 with open(os.path.join(outdir, "output.txt"), "w", encoding="utf-8") as f:
                     f.write(combined)
             status = "ok" if proc.returncode == 0 else "error"

@@ -190,6 +190,11 @@
   let animRunning  = false;
   let scrollOffset = 0;
 
+  // Structured result state for collapsible blocks
+  let preResultLines  = [];
+  let resultBlocks    = [];   // { title, lines, expanded }
+  let postResultLines = [];
+
   function resizeTerm() {
     const nav = document.querySelector('.navbar');
     tw = termCanvas.width  = window.innerWidth;
@@ -198,6 +203,8 @@
   }
 
   function termColor(line) {
+    const stripped = line.replace(/^\s+/, '');
+    if (stripped.startsWith('▼') || stripped.startsWith('▶')) return '#7aa2f7';
     if (line.includes('❯') || line.includes('~/')) return '#7dcfff';
     if (line.includes('✓'))                        return '#9ece6a';
     if (line.includes('finished'))                  return '#9ece6a';
@@ -266,6 +273,45 @@
     })();
   }
 
+  termCanvas.addEventListener('mousemove', e => {
+    if (!resultBlocks.length) { termCanvas.style.cursor = ''; return; }
+    const rect       = termCanvas.getBoundingClientRect();
+    const clickedRow = Math.floor((e.clientY - rect.top) / TLH);
+    const total      = tlines.length;
+    const end        = Math.max(0, total - scrollOffset);
+    const start      = Math.max(0, end - tmax);
+    const absIdx     = start + clickedRow;
+    let lineIdx = preResultLines.length;
+    let onHeader = false;
+    for (let i = 0; i < resultBlocks.length; i++) {
+      if (absIdx === lineIdx) { onHeader = true; break; }
+      lineIdx++;
+      if (resultBlocks[i].expanded) lineIdx += resultBlocks[i].lines.length;
+    }
+    termCanvas.style.cursor = onHeader ? 'pointer' : '';
+  });
+
+  termCanvas.addEventListener('click', e => {
+    if (!resultBlocks.length) return;
+    const rect       = termCanvas.getBoundingClientRect();
+    const clickedRow = Math.floor((e.clientY - rect.top) / TLH);
+    const total      = tlines.length;
+    const end        = Math.max(0, total - scrollOffset);
+    const start      = Math.max(0, end - tmax);
+    const absIdx     = start + clickedRow;
+
+    let lineIdx = preResultLines.length;
+    for (let i = 0; i < resultBlocks.length; i++) {
+      if (absIdx === lineIdx) {
+        resultBlocks[i].expanded = !resultBlocks[i].expanded;
+        rebuildTlines();
+        return;
+      }
+      lineIdx++;
+      if (resultBlocks[i].expanded) lineIdx += resultBlocks[i].lines.length;
+    }
+  });
+
   termCanvas.addEventListener('wheel', e => {
     e.preventDefault();
     const step = e.deltaMode === 1 ? 3 : Math.ceil(Math.abs(e.deltaY) / 40);
@@ -287,6 +333,18 @@
   function pushLine(line) { tlines.push(line); }
   function replaceLast(line) { if (tlines.length > 0) tlines[tlines.length - 1] = line; }
   function scrollToTop() { scrollOffset = Math.max(0, tlines.length - tmax); }
+
+  function rebuildTlines() {
+    tlines = [...preResultLines];
+    for (const block of resultBlocks) {
+      const arrow = block.expanded ? '▼' : '▶';
+      tlines.push(`  ${arrow} ${block.title}  (${block.lines.length} líneas)`);
+      if (block.expanded) {
+        for (const l of block.lines) tlines.push(l);
+      }
+    }
+    tlines = [...tlines, ...postResultLines];
+  }
 
   async function typePrompt(text) {
     for (let c = 0; c <= text.length; c++) {
@@ -345,11 +403,12 @@
   /* ══════════════════════════════════════
      6. RESULTS FORMATTER
   ══════════════════════════════════════ */
-  function* formatJobResults(job) {
+  function buildResultBlocks(job) {
     const tools = job.results?.tools || [];
-    let hasAny = false;
+    const blocks = [];
     for (const t of tools) {
       const output = t.output || {};
+      const lines  = [];
       for (const fname of Object.keys(output)) {
         const content = output[fname];
         if (!content) continue;
@@ -357,18 +416,26 @@
           for (const finding of content.hallazgos) {
             const tipo = safeText(finding.tipo, 60);
             for (const r of (finding.results || [])) {
-              yield `  [${tipo}]  ${safeText(r, 110)}`;
-              hasAny = true;
+              lines.push(`    [${tipo}]  ${safeText(r, 110)}`);
             }
           }
         } else if (typeof content === 'string') {
-          for (const l of content.split('\n').slice(0, 120)) {
-            if (l.trim()) { yield `  ${safeText(l.trim(), 120)}`; hasAny = true; }
+          for (const l of content.split('\n')) {
+            const trimmed = l.trimEnd();
+            if (trimmed) lines.push(`    ${safeText(trimmed, 118)}`);
           }
         }
       }
+      if (lines.length > 0) {
+        const status = t.status === 'ok' ? '✓' : '✗';
+        blocks.push({
+          title:    `${status} tool:${safeText(t.tool, 12)}`,
+          lines,
+          expanded: true,
+        });
+      }
     }
-    if (!hasAny) yield '  No findings';
+    return blocks;
   }
 
   /* ══════════════════════════════════════
@@ -377,6 +444,7 @@
   async function runSubmit(type, displayArg, apiCall) {
     resizeTerm();
     tlines = []; scrollOffset = 0; cursorLine = null;
+    preResultLines = []; resultBlocks = []; postResultLines = [];
     startRenderLoop();
 
     await typePrompt(`~/zipper_tools ❯ zipper submit ${displayArg}`);
@@ -391,16 +459,20 @@
       const job = await apiGetJob(job_id);
       replaceLast('  Status   finished');
       pushLine('');
-      for (const line of formatJobResults(job)) {
-        pushLine(line);
-        await sleep(20);
-      }
+
+      preResultLines  = [...tlines];
+      resultBlocks    = buildResultBlocks(job);
+      postResultLines = resultBlocks.length
+        ? ['', '~/zipper_tools ❯ ']
+        : ['  No findings', '', '~/zipper_tools ❯ '];
+      rebuildTlines();
+
     } catch (err) {
       replaceLast(`  Error    ${safeText(err.message, 100)}`);
+      pushLine('');
+      pushLine('~/zipper_tools ❯ ');
     }
 
-    pushLine('');
-    pushLine('~/zipper_tools ❯ ');
     cursorLine = '~/zipper_tools ❯ ';
     scrollToTop();
   }
@@ -408,6 +480,7 @@
   async function runSearch(query) {
     resizeTerm();
     tlines = []; scrollOffset = 0; cursorLine = null;
+    preResultLines = []; resultBlocks = []; postResultLines = [];
     startRenderLoop();
 
     const isJobId = /^[0-9a-f-]{8,36}$/i.test(query.trim());
@@ -420,8 +493,19 @@
         pushLine(`  Kind     ${safeText(job.kind, 20)}`);
         pushLine(`  Status   ${safeText(job.status, 20)}`);
         pushLine('');
-        for (const line of formatJobResults(job)) { pushLine(line); await sleep(20); }
-      } catch (err) { replaceLast(`  Error    ${safeText(err.message, 100)}`); }
+
+        preResultLines  = [...tlines];
+        resultBlocks    = buildResultBlocks(job);
+        postResultLines = resultBlocks.length
+          ? ['', '~/zipper_tools ❯ ']
+          : ['  No findings', '', '~/zipper_tools ❯ '];
+        rebuildTlines();
+
+      } catch (err) {
+        replaceLast(`  Error    ${safeText(err.message, 100)}`);
+        pushLine('');
+        pushLine('~/zipper_tools ❯ ');
+      }
     } else {
       await typePrompt(`~/zipper_tools ❯ zipper jobs --search "${safeText(query, 60)}"`);
       pushLine('  Searching…');
@@ -435,10 +519,10 @@
         }
         if (!jobs.length) pushLine('  No matching jobs');
       } catch (err) { replaceLast(`  Error    ${safeText(err.message, 100)}`); }
+      pushLine('');
+      pushLine('~/zipper_tools ❯ ');
     }
 
-    pushLine('');
-    pushLine('~/zipper_tools ❯ ');
     cursorLine = '~/zipper_tools ❯ ';
     scrollToTop();
   }
