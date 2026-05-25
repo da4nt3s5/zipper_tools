@@ -305,6 +305,7 @@
       if (absIdx === lineIdx) {
         resultBlocks[i].expanded = !resultBlocks[i].expanded;
         rebuildTlines();
+        scrollOffset = Math.min(scrollOffset, Math.max(0, tlines.length - tmax));
         return;
       }
       lineIdx++;
@@ -333,6 +334,13 @@
   function pushLine(line) { tlines.push(line); }
   function replaceLast(line) { if (tlines.length > 0) tlines[tlines.length - 1] = line; }
   function scrollToTop() { scrollOffset = Math.max(0, tlines.length - tmax); }
+
+  // Scroll so the first result block header is at the top of the visible area
+  function scrollToResults() {
+    if (!resultBlocks.length) { scrollToTop(); return; }
+    const targetStart = preResultLines.length;
+    scrollOffset = Math.max(0, tlines.length - tmax - targetStart);
+  }
 
   function rebuildTlines() {
     tlines = [...preResultLines];
@@ -474,7 +482,7 @@
     }
 
     cursorLine = '~/zipper_tools ❯ ';
-    scrollToTop();
+    scrollToResults();
   }
 
   async function runSearch(query) {
@@ -483,7 +491,7 @@
     preResultLines = []; resultBlocks = []; postResultLines = [];
     startRenderLoop();
 
-    const isJobId = /^[0-9a-f-]{8,36}$/i.test(query.trim());
+    const isJobId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query.trim());
     if (isJobId) {
       await typePrompt(`~/zipper_tools ❯ zipper jobs ${safeText(query, 40)}`);
       pushLine('  Looking up…');
@@ -500,6 +508,7 @@
           ? ['', '~/zipper_tools ❯ ']
           : ['  No findings', '', '~/zipper_tools ❯ '];
         rebuildTlines();
+        scrollToResults();
 
       } catch (err) {
         replaceLast(`  Error    ${safeText(err.message, 100)}`);
@@ -514,7 +523,8 @@
         replaceLast(`  ${jobs.length} job(s) found`);
         pushLine('');
         for (const j of jobs) {
-          pushLine(`  ${safeText(j.job_id, 36)}  ${safeText(j.kind || '-', 6)}  ${safeText(j.status, 12)}`);
+          const label = j.filename ? safeText(j.filename, 24) : (j.url ? safeText(j.url, 24) : '-');
+          pushLine(`  ${safeText(j.job_id, 36)}  ${safeText(j.kind || '-', 6)}  ${safeText(j.status, 10)}  ${label}`);
           await sleep(30);
         }
         if (!jobs.length) pushLine('  No matching jobs');

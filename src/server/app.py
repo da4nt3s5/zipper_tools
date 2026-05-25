@@ -152,7 +152,7 @@ async def submit(
 ):
     job_id = str(uuid.uuid4())
     if file:
-        store.create_job(job_id, "file")
+        store.create_job(job_id, "file", filename=file.filename)
         await store.save_uploaded_file(job_id, file)
     elif body:
         store.create_job(job_id, "url", body.url)
