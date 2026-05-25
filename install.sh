@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/da4nt3s5/zipper_tools.git"
+#REPO_URL="git@github.com:da4nt3s5/zipper_tools.git"
 REPO_DIR="zipper_tools"
 
 echo "=== zipper_tools Installer ==="

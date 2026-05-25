@@ -1,4 +1,4 @@
-## zipper_tools / zipper_tools
+zipper_tools
 
 ## Project Overview
 
