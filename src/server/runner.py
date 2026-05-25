@@ -1,4 +1,5 @@
 import os, subprocess, time, re
+from server.registry import load_tools
 
 _ANSI = re.compile(r'\x1b\[[0-9;]*[mGKHFJSTABCDEFf]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-Za-z]')
 
