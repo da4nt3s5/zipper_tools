@@ -8,12 +8,15 @@ class JobStore:
     def job_dir(self, job_id):
         return os.path.join(self.base_dir, job_id)
 
-    def create_job(self, job_id, kind, url=None):
+    def create_job(self, job_id, kind, url=None, filename=None):
         d = self.job_dir(job_id)
         os.makedirs(d, exist_ok=True)
         os.makedirs(f"{d}/input", exist_ok=True)
         os.makedirs(f"{d}/tools", exist_ok=True)
-        self._write(job_id, {"job_id": job_id, "kind": kind, "url": url, "status": "queued"})
+        data = {"job_id": job_id, "kind": kind, "url": url, "status": "queued"}
+        if filename:
+            data["filename"] = filename
+        self._write(job_id, data)
 
     async def save_uploaded_file(self, job_id, upload):
         with open(f"{self.job_dir(job_id)}/input/sample.bin", "wb") as f:
@@ -64,6 +67,7 @@ class JobStore:
                     j.get("url") or "",
                     j.get("kind") or "",
                     j.get("status") or "",
+                    j.get("filename") or "",
                 ]).lower()
                 if needle not in haystack:
                     continue

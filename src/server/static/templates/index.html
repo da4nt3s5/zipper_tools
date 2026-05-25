@@ -4,49 +4,45 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>zipper_tools</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=3" />
+  <link rel="stylesheet" href="/static/css/style.css?v=11" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 </head>
 <body>
 
-  <!-- Terminal background -->
   <canvas id="zbg"></canvas>
-
-  <!-- Dark overlay -->
   <div class="overlay"></div>
 
   <!-- ══════════════════════════════════════
-       LAYER 1 — Modal (visible on load)
+       LAYER 1 — Main modal
   ══════════════════════════════════════ -->
   <div id="layerModal" class="layer on">
     <div class="modal">
+
+      <!-- X button (close → go back to terminal) -->
+      <button id="btnCloseModal" class="x-btn modal-x" title="Close">✕</button>
 
       <!-- Tabs -->
       <div class="tab-row">
         <span class="tp active" data-t="file">FILE</span>
         <span class="tp" data-t="url">URL</span>
         <span class="tp" data-t="search">SEARCH</span>
+        <span id="tabChangePwd" class="tp tlogin" data-t="changepwd" style="display:none;">CHANGE PWD</span>
         <span class="tp tlogin" data-t="login">LOGIN</span>
       </div>
 
       <!-- FILE -->
       <div id="tc-file" class="tc active-tc">
-        <div class="card">
+        <div class="card" id="dropCard">
           <svg class="upload-icon" width="38" height="38" viewBox="0 0 40 40" fill="none">
             <rect x="5" y="5" width="30" height="30" rx="5" stroke="#1e2e5a" stroke-width="1"/>
             <path d="M20 27L20 13M14 19L20 13L26 19" stroke="#3d5a9a" stroke-width="1.3"
                   stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <p class="drop-label">
-            drag & drop  or  <span class="browse-link">browse files</span>
-          </p>
+          <p class="drop-label">drag & drop  or  <span class="browse-link">browse files</span></p>
           <p class="ext-label">.exe  ·  .apk  ·  .dll  ·  .pdf</p>
-          <input type="file" id="fileInput" accept=".exe,.apk,.dll,.pdf" hidden />
+          <input type="file" id="fileInput" hidden />
         </div>
-        <p class="legal">
-          By submitting you agree to our
-          <a href="#">Terms</a> · <a href="#">Privacy</a>
-        </p>
+        <p class="legal">By submitting you agree to our <a href="#">Terms</a> · <a href="#">Privacy</a></p>
       </div>
 
       <!-- URL -->
@@ -61,10 +57,7 @@
           </div>
           <button id="submitUrl" class="cbtn">Submit URL</button>
         </div>
-        <p class="legal">
-          By submitting you agree to our
-          <a href="#">Terms</a> · <a href="#">Privacy</a>
-        </p>
+        <p class="legal">By submitting you agree to our <a href="#">Terms</a> · <a href="#">Privacy</a></p>
       </div>
 
       <!-- SEARCH -->
@@ -82,6 +75,29 @@
         </div>
       </div>
 
+      <!-- CHANGE PASSWORD -->
+      <div id="tc-changepwd" class="tc">
+        <div class="card card-form card-login">
+          <p class="cp-title">Cambio de contraseña requerido</p>
+          <div class="field-row field-login">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="2" y="5.5" width="8" height="5.5" rx="1" stroke="#4a2a7a" stroke-width="1"/>
+              <path d="M4 5.5V4a2 2 0 114 0v1.5" stroke="#4a2a7a" stroke-width="1" fill="none"/>
+            </svg>
+            <input id="cpNewPwd" type="password" placeholder="nueva contraseña" />
+          </div>
+          <div class="field-row field-login">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="2" y="5.5" width="8" height="5.5" rx="1" stroke="#4a2a7a" stroke-width="1"/>
+              <path d="M4 5.5V4a2 2 0 114 0v1.5" stroke="#4a2a7a" stroke-width="1" fill="none"/>
+            </svg>
+            <input id="cpConfirmPwd" type="password" placeholder="confirmar contraseña" />
+          </div>
+          <button class="pbtn" id="cpSubmit">Cambiar contraseña</button>
+          <p id="cpMsg" class="form-msg"></p>
+        </div>
+      </div>
+
       <!-- LOGIN -->
       <div id="tc-login" class="tc">
         <div class="card card-form card-login">
@@ -91,21 +107,17 @@
               <path d="M1.5 11c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5"
                     stroke="#4a2a7a" stroke-width="1" stroke-linecap="round" fill="none"/>
             </svg>
-            <input type="email" placeholder="user@zipper_tools.io" />
+            <input id="loginUser" type="text" placeholder="username" />
           </div>
           <div class="field-row field-login">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <rect x="2" y="5.5" width="8" height="5.5" rx="1" stroke="#4a2a7a" stroke-width="1"/>
               <path d="M4 5.5V4a2 2 0 114 0v1.5" stroke="#4a2a7a" stroke-width="1" fill="none"/>
             </svg>
-            <input type="password" placeholder="password" />
+            <input id="loginPwd" type="password" placeholder="password" />
           </div>
           <button class="pbtn" id="signinBtn">Sign in</button>
-          <div class="login-links">
-            <span class="lnk">Forgot password?</span>
-            <span class="sep">·</span>
-            <span class="lnk">Create account</span>
-          </div>
+          <p id="loginMsg" class="form-msg"></p>
         </div>
       </div>
 
@@ -113,11 +125,9 @@
   </div>
 
   <!-- ══════════════════════════════════════
-       LAYER 2 — Terminal + Navbar (post-submit)
+       LAYER 2 — Terminal + Navbar
   ══════════════════════════════════════ -->
   <div id="layerTerminal" class="layer">
-
-    <!-- Navbar -->
     <nav class="navbar">
       <svg class="nav-icon" width="26" height="26" viewBox="0 0 72 72" fill="none">
         <rect width="72" height="72" rx="16" fill="#0e1020"/>
@@ -133,14 +143,99 @@
       <span class="nav-name">zipper_tools</span>
       <div class="nav-divider"></div>
       <button id="btnNewSubmit" class="nav-btn">+ new submit</button>
-      <button id="btnNavLogin" class="nav-btn nav-btn-login">login</button>
+      <button id="btnAddTool"   class="nav-btn" style="display:none;">add tool</button>
+      <button id="btnUsers"     class="nav-btn" style="display:none;">users</button>
+      <span   id="navUserInfo"  class="nav-user-info" style="display:none;"></span>
+      <button id="btnNavLogin"  class="nav-btn nav-btn-login">login</button>
     </nav>
-
-    <!-- Terminal output -->
     <canvas id="termCanvas"></canvas>
-
   </div>
 
-  <script src="/static/js/app.js?v=3"></script>
+  <!-- ══════════════════════════════════════
+       LAYER 3 — Add Tool modal
+  ══════════════════════════════════════ -->
+  <div id="layerAddTool" class="layer" style="align-items:center;justify-content:center;">
+    <div class="modal">
+      <button id="btnCloseAddTool" class="x-btn modal-x" title="Close">✕</button>
+      <div class="tab-row">
+        <span style="font:13px monospace;letter-spacing:.6px;color:#3d5580;">ADD TOOL</span>
+      </div>
+      <div class="card card-form">
+        <div class="field-row">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="4.5" stroke="#2a4278" stroke-width="1"/>
+            <path d="M4 6h4M6 4v4" stroke="#2a4278" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+          <input id="atRepoUrl" type="url" placeholder="https://github.com/user/repo" />
+        </div>
+
+        <div class="at-section">
+          <p class="at-label">INPUT TYPE</p>
+          <div class="at-radios">
+            <label class="at-rl"><input type="radio" name="atKind" value="file" checked> file</label>
+            <label class="at-rl"><input type="radio" name="atKind" value="url"> url</label>
+            <label class="at-rl"><input type="radio" name="atKind" value="both"> both</label>
+          </div>
+        </div>
+
+        <div class="at-section">
+          <p class="at-label">RUNTIME</p>
+          <div class="at-radios">
+            <label class="at-rl"><input type="radio" name="atRuntime" value="python" checked> python</label>
+            <label class="at-rl"><input type="radio" name="atRuntime" value="docker"> docker</label>
+            <label class="at-rl"><input type="radio" name="atRuntime" value="binary"> binary</label>
+            <label class="at-rl"><input type="radio" name="atRuntime" value="go"> go</label>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 3l3 3-3 3M7 9h3" stroke="#2a4278" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+          <input id="atCmd" type="text" placeholder="python run.py -f {file} -o {outdir}" />
+        </div>
+        <p class="ext-label">{file}  ·  {url}  ·  {outdir}  ·  {jobdir}</p>
+        <p class="at-hint">Deja los campos en blanco si el repo ya tiene zipper_tools.yaml</p>
+        <p id="atMsg" class="form-msg" style="margin-top:8px;"></p>
+        <button id="atSubmitBtn" class="cbtn" style="margin-top:10px;">Add Tool</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       LAYER 4 — Users modal (admin only)
+  ══════════════════════════════════════ -->
+  <div id="layerUsers" class="layer" style="align-items:center;justify-content:center;">
+    <div class="modal">
+      <button id="btnCloseUsers" class="x-btn modal-x" title="Close">✕</button>
+      <div class="tab-row">
+        <span style="font:13px monospace;letter-spacing:.6px;color:#3d5580;">USERS</span>
+      </div>
+
+      <!-- User list -->
+      <div class="card card-form" style="margin-bottom:8px;max-height:200px;overflow-y:auto;">
+        <div id="usersList"></div>
+      </div>
+
+      <!-- Create user -->
+      <div class="card card-form">
+        <div class="field-row">
+          <input id="nuUsername" type="text" placeholder="username" />
+        </div>
+        <div class="field-row">
+          <input id="nuPassword" type="password" placeholder="password (min 8 chars)" />
+        </div>
+        <select id="nuRole" class="role-select">
+          <option value="admin">admin — Administrador</option>
+          <option value="user" selected>user — Usuario normal</option>
+          <option value="tester">tester — Solo análisis</option>
+        </select>
+        <button id="btnCreateUser" class="cbtn" style="margin-top:8px;">Create User</button>
+        <p id="nuMsg" class="form-msg"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=11"></script>
 </body>
 </html>

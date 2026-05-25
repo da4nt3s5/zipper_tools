@@ -5,3 +5,5 @@ src/tools_runtime/
 src/logs/
 __pycache__/
 *.pyc
+src/server/users_db.json
+src/server/.secret

@@ -13,8 +13,9 @@ import argparse
 # =================================================
 # Paths correctos para ejecución directa
 # =================================================
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOOLS_DIR = os.path.join(BASE_DIR, "tools_storage")
+BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HOME_DIR = os.path.join(os.path.expanduser("~"), ".zipper_tools")
+TOOLS_DIR = os.environ.get("ZIPPER_TOOLS_DIR", os.path.join(_HOME_DIR, "tools_storage"))
 
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
@@ -83,7 +84,7 @@ def interactive_manifest(repo_path: str) -> dict:
 # =================================================
 # Core: agregar herramienta
 # =================================================
-def add_tool(repo_url: str) -> dict:
+def add_tool(repo_url: str, manifest_override: dict = None) -> dict:
     # 1) verificar repo
     code, _, err = run(["git", "ls-remote", repo_url])
     if code != 0:
@@ -100,13 +101,18 @@ def add_tool(repo_url: str) -> dict:
         shutil.rmtree(tool_base, ignore_errors=True)
         raise RuntimeError(f"Error clonando repo: {err}")
 
-    # 3) leer o crear manifiesto
+    # 3) leer manifiesto
     manifest_path = os.path.join(repo_path, "zipper_tools.yaml")
-    if not os.path.exists(manifest_path):
-        manifest = interactive_manifest(repo_path)
-    else:
+    if manifest_override:
+        manifest = manifest_override
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            yaml.dump(manifest, f, sort_keys=False)
+    elif os.path.exists(manifest_path):
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = yaml.safe_load(f)
+    else:
+        shutil.rmtree(tool_base, ignore_errors=True)
+        raise RuntimeError("NEEDS_MANIFEST")
 
     # 4) registrar
     tools = load_tools()
@@ -136,14 +142,29 @@ def main():
 
     try:
         tool = add_tool(repo_url)
-        print("\n[✓] Herramienta agregada correctamente")
-        print(f"    ID:   {tool['id']}")
-        print(f"    Repo: {tool['repo']}")
-        print(f"    Tipo: {tool['accepts']['kind']}")
-        print(f"    Runtime: {tool['runtime']['type']}")
+    except RuntimeError as e:
+        if "NEEDS_MANIFEST" in str(e):
+            # No zipper_tools.yaml — run interactive wizard
+            tool_base_guess = os.path.join(TOOLS_DIR, "tmp_wizard")
+            repo_path_guess = os.path.join(tool_base_guess, "repo")
+            # Re-clone so wizard has the repo path
+            os.makedirs(tool_base_guess, exist_ok=True)
+            run(["git", "clone", "--depth", "1", repo_url, repo_path_guess])
+            manifest = interactive_manifest(repo_path_guess)
+            shutil.rmtree(tool_base_guess, ignore_errors=True)
+            tool = add_tool(repo_url, manifest_override=manifest)
+        else:
+            print(f"\n[✗] Error: {e}", file=sys.stderr)
+            sys.exit(1)
     except Exception as e:
         print(f"\n[✗] Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    print("\n[✓] Herramienta agregada correctamente")
+    print(f"    ID:   {tool['id']}")
+    print(f"    Repo: {tool['repo']}")
+    print(f"    Tipo: {tool['accepts']['kind']}")
+    print(f"    Runtime: {tool['runtime']['type']}")
 
 if __name__ == "__main__":
     main()
