@@ -305,7 +305,17 @@
       if (absIdx === lineIdx) {
         resultBlocks[i].expanded = !resultBlocks[i].expanded;
         rebuildTlines();
-        scrollOffset = Math.min(scrollOffset, Math.max(0, tlines.length - tmax));
+        if (resultBlocks[i].expanded) {
+          // Scroll so this block's header lands at the top of the view
+          let hIdx = preResultLines.length;
+          for (let j = 0; j < i; j++) {
+            hIdx++;
+            if (resultBlocks[j].expanded) hIdx += resultBlocks[j].lines.length;
+          }
+          scrollOffset = Math.max(0, tlines.length - tmax - hIdx);
+        } else {
+          scrollOffset = Math.min(scrollOffset, Math.max(0, tlines.length - tmax));
+        }
         return;
       }
       lineIdx++;
@@ -335,18 +345,20 @@
   function replaceLast(line) { if (tlines.length > 0) tlines[tlines.length - 1] = line; }
   function scrollToTop() { scrollOffset = Math.max(0, tlines.length - tmax); }
 
-  // Scroll so the first result block header is at the top of the visible area
+  // Scroll so the result block headers start at top (or show all if they fit)
   function scrollToResults() {
     if (!resultBlocks.length) { scrollToTop(); return; }
     const targetStart = preResultLines.length;
-    scrollOffset = Math.max(0, tlines.length - tmax - targetStart);
+    const candidate   = tlines.length - tmax - targetStart;
+    scrollOffset = candidate > 0 ? candidate : 0;
   }
 
   function rebuildTlines() {
     tlines = [...preResultLines];
     for (const block of resultBlocks) {
       const arrow = block.expanded ? '▼' : '▶';
-      tlines.push(`  ${arrow} ${block.title}  (${block.lines.length} líneas)`);
+      const titleStr = block.title.startsWith('[') ? block.title : `[${block.title}]`;
+      tlines.push(`  ${arrow} ${titleStr}  (${block.lines.length})`);
       if (block.expanded) {
         for (const l of block.lines) tlines.push(l);
       }
@@ -411,36 +423,50 @@
   /* ══════════════════════════════════════
      6. RESULTS FORMATTER
   ══════════════════════════════════════ */
+
+  // Parse raw text output into [{ title, lines }] groups by [Category] headers
+  function _parseCats(text) {
+    const result = [];
+    let cur = null, curLines = [];
+    for (const raw of text.split('\n')) {
+      const m = raw.trim().match(/^\[([^\]]+)\]$/);
+      if (m) {
+        if (cur !== null && curLines.length) result.push({ title: cur, lines: curLines });
+        cur = m[1]; curLines = [];
+      } else if (cur !== null && raw.trim()) {
+        const val = raw.trim().replace(/^-\s*/, '');
+        if (val) curLines.push(`  - ${safeText(val, 118)}`);
+      }
+    }
+    if (cur !== null && curLines.length) result.push({ title: cur, lines: curLines });
+    return result;
+  }
+
+  // Build one collapsible block per category. All start COLLAPSED.
   function buildResultBlocks(job) {
     const tools = job.results?.tools || [];
     const blocks = [];
     for (const t of tools) {
       const output = t.output || {};
-      const lines  = [];
       for (const fname of Object.keys(output)) {
         const content = output[fname];
         if (!content) continue;
         if (content.hallazgos && Array.isArray(content.hallazgos)) {
+          // Structured: one block per category
           for (const finding of content.hallazgos) {
-            const tipo = safeText(finding.tipo, 60);
-            for (const r of (finding.results || [])) {
-              lines.push(`    [${tipo}]  ${safeText(r, 110)}`);
-            }
+            const lines = (finding.results || []).map(r => `  - ${safeText(r, 118)}`);
+            if (lines.length) blocks.push({ title: safeText(finding.tipo, 60), lines, expanded: false });
           }
         } else if (typeof content === 'string') {
-          for (const l of content.split('\n')) {
-            const trimmed = l.trimEnd();
-            if (trimmed) lines.push(`    ${safeText(trimmed, 118)}`);
+          const cats = _parseCats(content);
+          if (cats.length) {
+            for (const c of cats) blocks.push({ title: c.title, lines: c.lines, expanded: false });
+          } else {
+            // No categories — single block with raw lines
+            const raw = content.split('\n').map(l => `  ${safeText(l.trimEnd(), 118)}`).filter(l => l.trim());
+            if (raw.length) blocks.push({ title: `${t.status === 'ok' ? '✓' : '✗'} output`, lines: raw, expanded: false });
           }
         }
-      }
-      if (lines.length > 0) {
-        const status = t.status === 'ok' ? '✓' : '✗';
-        blocks.push({
-          title:    `${status} tool:${safeText(t.tool, 12)}`,
-          lines,
-          expanded: true,
-        });
       }
     }
     return blocks;

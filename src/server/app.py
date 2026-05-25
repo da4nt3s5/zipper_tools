@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
-import os, uuid
+import os, uuid, re
 from server.storage import JobStore
 from server.runner import run_job
 from server.tools_add import add_tool
@@ -184,6 +184,23 @@ def tools_add(data: AddToolIn, current_user: dict = Depends(require_roles("admin
 # ── Results formatting ────────────────────────────────────────
 _MAX_MATCH_LEN = 120
 
+def _parse_text_findings(text: str):
+    """Parse [Category] / item lines from tool text output into hallazgos list."""
+    sections, order, current = {}, [], None
+    for line in text.split('\n'):
+        stripped = line.strip()
+        m = re.match(r'^\[([^\]]+)\]$', stripped)
+        if m:
+            current = m.group(1)
+            if current not in sections:
+                sections[current] = []
+                order.append(current)
+        elif current and stripped:
+            val = stripped.lstrip('- ').strip()
+            if val:
+                sections[current].append(val[:_MAX_MATCH_LEN])
+    return [{"tipo": k, "results": sections[k]} for k in order if sections[k]]
+
 def _format_findings(findings: list) -> dict:
     summary = []
     for item in findings:
@@ -228,7 +245,11 @@ def job(job_id: str, current_user: dict = Depends(get_current_user)):
                             else:
                                 output[fname] = parsed
                         except Exception:
-                            output[fname] = content[:2000] + ("…" if len(content) > 2000 else "")
+                            findings = _parse_text_findings(content)
+                            if findings:
+                                output[fname] = {"hallazgos": findings}
+                            else:
+                                output[fname] = content[:8000] + ("…" if len(content) > 8000 else "")
                     except Exception:
                         output[fname] = None
             tool_result["output"] = output
