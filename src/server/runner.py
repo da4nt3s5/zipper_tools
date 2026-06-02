@@ -30,9 +30,12 @@ def run_job(store, job_id):
 
         cmd = t["entrypoint"]["cmd"].format(**ctx)
 
+        tool_repo = os.path.join(t["path"], "repo") if t.get("path") else None
+        cwd = tool_repo if tool_repo and os.path.isdir(tool_repo) else None
+
         start = time.time()
         try:
-            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
             combined = _ANSI.sub('', proc.stdout + proc.stderr).strip()
             if combined:
                 print(combined, flush=True)
